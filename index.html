@@ -724,7 +724,7 @@ function ncCtxCopy(noteId){
   if(!n)return;
   const text=(n.title?n.title+"\n":"")+n.body;
   navigator.clipboard&&navigator.clipboard.writeText(text).then(()=>{
-    showToast("কপি হয়েছে","","#059669");
+
   }).catch(()=>showToast("কপি ব্যর্থ হয়েছে","","#dc2626"));
   closeNoteCardCtx();
 }
@@ -741,31 +741,15 @@ function ncCtxShare(noteId){
   }
   closeNoteCardCtx();
 }
-// ── Multi-API-Key System ──────────────────────────────────
-// Each entry: {id, label, key, exhausted}
 let apiKeys=lsGet("hk_apikeys",[]);
 let showAddKey=false;
 let newKeyLabel="";
 let newKeyVal="";
+let newKeyProvider="gemini";
+let newKeyModel="";
+let currentKeyIdx=0;
 let chatMsgs=[];
 let chatLoading=false;
-// which key index to try next
-let currentKeyIdx=0;
-// reset exhausted if all are exhausted — ম্যানুয়াল reset বাটন থেকে করতে হবে
-function getActiveKey(){
-  const live=apiKeys.filter(k=>!k.exhausted);
-  if(live.length===0){
-    return null; // সব exhausted — null return করো, caller জানাবে
-  }
-  // use currentKeyIdx among live keys
-  if(currentKeyIdx>=live.length)currentKeyIdx=0;
-  return live[currentKeyIdx];
-}
-function markKeyExhausted(keyId){
-  apiKeys=apiKeys.map(k=>k.id===keyId?{...k,exhausted:true}:k);
-  lsSet("hk_apikeys",apiKeys);
-  currentKeyIdx=0;
-}
 
 // Settings (apiKeys + notePIN) Firebase-এ সেভ
 function fbSyncSettings(){
@@ -878,7 +862,7 @@ window._fbOnReady=async function(){
     }
     if(fbSettings){
       if(fbSettings.apiKeys){
-        apiKeys=fbSettings.apiKeys;
+        apiKeys=fbSettings.apiKeys.map(k=>({...k,exhausted:false}));
         lsSet("hk_apikeys",apiKeys);
       }
       if(fbSettings.notePIN){
@@ -959,7 +943,7 @@ function dismissAlarm(){
 function snoozeAlarm(){
   clearInterval(ringInterval);
   document.getElementById("alarm-modal").style.display="none";
-  showToast("স্নুজ ৫ মিনিট","৫ মিনিট পরে আবার বাজবে","#3b82f6");
+
   setTimeout(()=>{if(activeAlarm)showAlarmModal(activeAlarm);},300000);
 }
 
@@ -1741,7 +1725,7 @@ function saveLockedNote(){
   }
   lockedEditorOpen=false;noteEdit=null;
   save();render();
-  showToast("লক নোট সংরক্ষণ হয়েছে","","#7c3aed");
+
 }
 
 function toggleNoteLabel(labelId){
@@ -1767,7 +1751,7 @@ function confirmPinSetup(){
     lsSet("ta_note_pin",NOTE_PIN);
     fbSyncSettings();
     lockSetupOpen=false;lockUnlocked=true;lockPinInput="";lockConfirmInput="";lockSetupStep=1;
-    render();showToast("PIN সেট হয়েছে","","#7c3aed");
+    render();
   }
 }
 function tryUnlock(){
@@ -1814,7 +1798,7 @@ function saveNewLabel(){
   newLabelName="";
   createLabelMode=false;
   render();
-  showToast("লেবেল তৈরি হয়েছে","","#7c3aed");
+
 }
 function deleteLabel(id){
   LABELS=LABELS.filter(lb=>lb.id!==id);
@@ -1833,7 +1817,7 @@ function saveRenameLabel(id){
   saveLabelsToFb();
   inlineLabelEdit=null;
   render();
-  showToast("লেবেল আপডেট হয়েছে","","#7c3aed");
+
 }
 // ── Label Drag-and-Drop Reorder ───────────────────────────
 let labelDragId=null;
@@ -1903,7 +1887,7 @@ function deleteNote(id){
   }
   if(noteEditorOpen||lockedEditorOpen){noteEditorOpen=false;lockedEditorOpen=false;noteEdit=null;}
   save();render();
-  showToast("নোট Trash-এ গেছে","Recently Deleted-এ দেখো","#64748b");
+
 }
 function restoreNote(id){
   const n=TRASH.find(x=>x.id===id);
@@ -1913,23 +1897,21 @@ function restoreNote(id){
     TRASH=TRASH.filter(x=>x.id!==id);
   }
   save();render();
-  showToast("নোট পুনরুদ্ধার হয়েছে","","#22c55e");
+
 }
 function permanentDelete(id){
   TRASH=TRASH.filter(x=>x.id!==id);
   save();render();
-  showToast("নোট স্থায়ীভাবে মুছে গেছে","","#64748b");
+
 }
 function emptyTrash(){
   TRASH=[];
   save();render();
-  showToast("Trash খালি হয়েছে","","#64748b");
+
 }
 
 // ── Section: Assistant ────────────────────────────────────
 function renderAssistant(){
-  const hasKeys=apiKeys.length>0;
-
   // chat
   const bubbles=chatMsgs.map(m=>`
     <div style="display:flex;justify-content:${m.role==="user"?"flex-end":"flex-start"}">
@@ -1941,7 +1923,11 @@ function renderAssistant(){
   const empty=chatMsgs.length===0&&!chatLoading?`<div class="chat-empty">
     <div style="display:flex;justify-content:center;margin-bottom:12px;color:#6b7280"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg></div>
     <div style="font-size:14px;color:#6b7280;font-weight:600;margin-bottom:6px">Personal Assistant</div>
-    <div style="font-size:12px;color:#94887a;line-height:1.8">${hasKeys?"যেকোনো প্রশ্ন করো!<br>হিসাব, পরামর্শ — সব বিষয়ে সাহায্য করবো।":"API Key যোগ করো, তারপর চ্যাট শুরু হবে।"}</div>
+    <div style="font-size:12px;color:#94887a;line-height:1.8">যেকোনো প্রশ্ন করো!<br>হিসাব, কাজ, নোট — সব বিষয়ে সাহায্য করবো।</div>
+    <div style="margin-top:10px;display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:20px;padding:4px 11px;font-size:10px;color:#16a34a;font-weight:600">
+      <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></span>
+      Built-in Claude AI সক্রিয়
+    </div>
   </div>`:"";
   return `<div class="section" style="display:flex;flex-direction:column;height:calc(100vh - 70px)">
     <!-- Chat area -->
@@ -1950,13 +1936,13 @@ function renderAssistant(){
     </div>
     <div class="chat-input-row">
       <textarea id="chat-inp" rows="1"
-        placeholder="${hasKeys?'বার্তা লিখো...':'আগে API Key যোগ করো'}"
-        ${!hasKeys||chatLoading?'disabled':''}
-        style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.14);border-radius:9px;font-size:14px;font-family:inherit;color:#1e2a3a;background:#fff;outline:none;resize:none;overflow:hidden;line-height:1.5;max-height:120px;${!hasKeys?'opacity:.45':''}"
+        placeholder="${chatLoading?'উত্তর আসছে...':'বার্তা লিখো...'}"
+        ${chatLoading?'disabled':''}
+        style="flex:1;padding:10px 12px;border:1px solid rgba(0,0,0,.14);border-radius:9px;font-size:14px;font-family:inherit;color:#1e2a3a;background:#fff;outline:none;resize:none;overflow:hidden;line-height:1.5;max-height:120px"
         oninput="chatInpVal=this.value;this.style.height='auto';this.style.height=this.scrollHeight+'px'"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"
       >${chatInpVal||''}</textarea>
-      <button class="send-btn" onclick="sendChat()" ${!hasKeys||chatLoading?"disabled":""}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+      <button class="send-btn" onclick="sendChat()" ${chatLoading?"disabled":""}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
     </div>
   </div>`;
 }
@@ -1983,13 +1969,19 @@ function renderApiManager(){
       <!-- Info -->
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:13px;font-weight:700;color:${k.exhausted?"#64748b":"#e2e8f0"}">${k.label||"Key "+(i+1)}</span>
+          <span style="font-size:13px;font-weight:700;color:${k.exhausted?"#64748b":"#1e2a3a"}">${k.label||"Key "+(i+1)}</span>
           ${activeKey&&activeKey.id===k.id&&!k.exhausted?`<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(124,58,237,.25);color:#7c3aed;font-weight:700">সক্রিয়</span>`:""}
           ${k.exhausted?`<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(239,68,68,.15);color:#f87171;font-weight:700">লিমিট শেষ</span>`:""}
+          <span style="font-size:9px;padding:2px 7px;border-radius:20px;font-weight:700;
+            background:${k.provider==="openai"?"rgba(16,163,127,.15)":k.provider==="anthropic"?"rgba(214,90,49,.15)":k.provider==="openrouter"?"rgba(59,130,246,.15)":"rgba(234,179,8,.15)"};
+            color:${k.provider==="openai"?"#059669":k.provider==="anthropic"?"#c2410c":k.provider==="openrouter"?"#2563eb":"#b45309"}">
+            ${k.provider==="openai"?"GPT":k.provider==="anthropic"?"Claude":k.provider==="openrouter"?"OpenRouter":"Gemini"}
+          </span>
         </div>
         <div style="font-size:11px;color:#6b7280;margin-top:3px;font-family:monospace;letter-spacing:.5px">
           ${k.key.slice(0,14)}••••••••${k.key.slice(-4)}
         </div>
+        ${k.model?`<div style="font-size:10px;color:#7c3aed;margin-top:2px;font-weight:600">${k.model}</div>`:""}
       </div>
       <!-- Actions -->
       <div style="display:flex;gap:6px;flex-shrink:0">
@@ -2006,19 +1998,128 @@ function renderApiManager(){
     <div style="animation:fadein .15s ease;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.25);
       border-radius:13px;padding:16px;margin-bottom:14px">
       <div style="font-size:13px;font-weight:700;color:#7c3aed;margin-bottom:12px;display:flex;align-items:center;gap:6px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> নতুন API Key</div>
-      <input class="inp" type="text" placeholder="নাম / লেবেল (যেমন: আমার Key)"
+
+      <!-- Label -->
+      <input class="inp" type="text" placeholder="নাম / লেবেল (যেমন: আমার Gemini Key)"
         value="${newKeyLabel}" oninput="newKeyLabel=this.value"
         style="border-color:rgba(124,58,237,.3)"/>
-      <input class="inp" type="password" placeholder="AIzaSy..."
+
+      <!-- Provider Select -->
+      <div style="font-size:11px;color:#94887a;margin-bottom:5px;font-weight:600">Provider</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
+        ${[
+          ["gemini","🌟 Gemini","#b45309","rgba(234,179,8,.12)"],
+          ["openai","🤖 OpenAI","#059669","rgba(16,163,127,.12)"],
+          ["anthropic","🧠 Claude","#c2410c","rgba(214,90,49,.12)"],
+          ["openrouter","🔀 OpenRouter","#2563eb","rgba(59,130,246,.12)"]
+        ].map(([p,lb,col,bg])=>`
+          <button onclick="newKeyProvider='${p}';newKeyModel='';render()"
+            style="padding:9px 6px;border-radius:9px;border:2px solid ${newKeyProvider===p?col:"rgba(0,0,0,.1)"};
+            background:${newKeyProvider===p?bg:"#fff"};cursor:pointer;font-size:12px;font-weight:${newKeyProvider===p?700:500};
+            color:${newKeyProvider===p?col:"#64748b"};font-family:inherit;transition:all .15s;text-align:center">
+            ${lb}
+          </button>`).join("")}
+      </div>
+
+      <!-- Model Select per provider -->
+      <div style="font-size:11px;color:#94887a;margin-bottom:5px;font-weight:600">মডেল</div>
+      ${newKeyProvider==="gemini"?`
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+          ${[
+            ["gemini-2.0-flash","Gemini 2.0 Flash","দ্রুত, বিনামূল্যে"],
+            ["gemini-2.5-flash-preview-05-20","Gemini 2.5 Flash","উন্নত, দ্রুত"],
+            ["gemini-2.5-pro-preview-05-06","Gemini 2.5 Pro","সর্বোচ্চ ক্ষমতা"],
+            ["gemini-1.5-flash","Gemini 1.5 Flash","হালকা, সাশ্রয়ী"],
+            ["gemini-1.5-pro","Gemini 1.5 Pro","শক্তিশালী"],
+          ].map(([val,name,desc])=>`
+            <button onclick="newKeyModel='${val}';render()"
+              style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;
+              border-radius:9px;border:1.5px solid ${newKeyModel===val?"#b45309":"rgba(0,0,0,.1)"};
+              background:${newKeyModel===val?"rgba(234,179,8,.1)":"#fff"};cursor:pointer;font-family:inherit;text-align:left;transition:all .15s">
+              <div>
+                <div style="font-size:12px;font-weight:${newKeyModel===val?700:500};color:${newKeyModel===val?"#b45309":"#1e2a3a"}">${name}</div>
+                <div style="font-size:10px;color:#94887a;margin-top:1px">${desc}</div>
+              </div>
+              ${newKeyModel===val?`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`:""}
+            </button>`).join("")}
+          <input class="inp" type="text" placeholder="কাস্টম মডেল (ঐচ্ছিক)"
+            value="${!["gemini-2.0-flash","gemini-2.5-flash-preview-05-20","gemini-2.5-pro-preview-05-06","gemini-1.5-flash","gemini-1.5-pro"].includes(newKeyModel)?newKeyModel:""}"
+            oninput="newKeyModel=this.value;render()"
+            style="border-color:rgba(234,179,8,.35);font-size:12px;margin-bottom:0;padding:8px 10px"/>
+        </div>`
+      :newKeyProvider==="openai"?`
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+          ${[
+            ["gpt-4o-mini","GPT-4o mini","সাশ্রয়ী, দ্রুত"],
+            ["gpt-4o","GPT-4o","শক্তিশালী"],
+            ["gpt-4.1","GPT-4.1","সর্বশেষ"],
+            ["gpt-4.1-mini","GPT-4.1 mini","দ্রুত, সাশ্রয়ী"],
+            ["o4-mini","o4-mini","যুক্তিশীল"],
+            ["o3-mini","o3-mini","গভীর চিন্তা"],
+          ].map(([val,name,desc])=>`
+            <button onclick="newKeyModel='${val}';render()"
+              style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;
+              border-radius:9px;border:1.5px solid ${newKeyModel===val?"#059669":"rgba(0,0,0,.1)"};
+              background:${newKeyModel===val?"rgba(16,163,127,.1)":"#fff"};cursor:pointer;font-family:inherit;text-align:left;transition:all .15s">
+              <div>
+                <div style="font-size:12px;font-weight:${newKeyModel===val?700:500};color:${newKeyModel===val?"#059669":"#1e2a3a"}">${name}</div>
+                <div style="font-size:10px;color:#94887a;margin-top:1px">${desc}</div>
+              </div>
+              ${newKeyModel===val?`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`:""}
+            </button>`).join("")}
+          <input class="inp" type="text" placeholder="কাস্টম মডেল (ঐচ্ছিক)"
+            value="${!["gpt-4o-mini","gpt-4o","gpt-4.1","gpt-4.1-mini","o4-mini","o3-mini"].includes(newKeyModel)?newKeyModel:""}"
+            oninput="newKeyModel=this.value;render()"
+            style="border-color:rgba(16,163,127,.35);font-size:12px;margin-bottom:0;padding:8px 10px"/>
+        </div>`
+      :newKeyProvider==="anthropic"?`
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+          ${[
+            ["claude-haiku-4-5-20251001","Claude Haiku 4.5","দ্রুত, সাশ্রয়ী"],
+            ["claude-sonnet-4-5-20251001","Claude Sonnet 4.5","ব্যালেন্সড"],
+            ["claude-sonnet-4-20250514","Claude Sonnet 4","শক্তিশালী"],
+            ["claude-opus-4-5-20251001","Claude Opus 4.5","সর্বোচ্চ"],
+            ["claude-haiku-3-5-20241022","Claude Haiku 3.5","পুরনো, স্থিতিশীল"],
+          ].map(([val,name,desc])=>`
+            <button onclick="newKeyModel='${val}';render()"
+              style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;
+              border-radius:9px;border:1.5px solid ${newKeyModel===val?"#c2410c":"rgba(0,0,0,.1)"};
+              background:${newKeyModel===val?"rgba(214,90,49,.1)":"#fff"};cursor:pointer;font-family:inherit;text-align:left;transition:all .15s">
+              <div>
+                <div style="font-size:12px;font-weight:${newKeyModel===val?700:500};color:${newKeyModel===val?"#c2410c":"#1e2a3a"}">${name}</div>
+                <div style="font-size:10px;color:#94887a;margin-top:1px">${desc}</div>
+              </div>
+              ${newKeyModel===val?`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`:""}
+            </button>`).join("")}
+          <input class="inp" type="text" placeholder="কাস্টম মডেল (ঐচ্ছিক)"
+            value="${!["claude-haiku-4-5-20251001","claude-sonnet-4-5-20251001","claude-sonnet-4-20250514","claude-opus-4-5-20251001","claude-haiku-3-5-20241022"].includes(newKeyModel)?newKeyModel:""}"
+            oninput="newKeyModel=this.value;render()"
+            style="border-color:rgba(214,90,49,.35);font-size:12px;margin-bottom:0;padding:8px 10px"/>
+        </div>`
+      :`
+        <!-- OpenRouter: free text -->
+        <input class="inp" type="text" placeholder="মডেল লিখো (যেমন: openai/gpt-4o-mini)"
+          value="${newKeyModel}" oninput="newKeyModel=this.value"
+          style="border-color:rgba(59,130,246,.35);margin-bottom:12px"/>
+        <div style="font-size:10px;color:#94887a;margin-top:-8px;margin-bottom:12px;line-height:1.7">
+          openrouter.ai/models — এখানে সব মডেল দেখো
+        </div>`}
+
+      <!-- API Key input -->
+      <div style="font-size:11px;color:#94887a;margin-bottom:5px;font-weight:600">API Key</div>
+      <input class="inp" type="password" placeholder="${newKeyProvider==="gemini"?"AIzaSy...":newKeyProvider==="anthropic"?"sk-ant-...":"sk-..."}"
         value="${newKeyVal}" oninput="newKeyVal=this.value"
         style="border-color:rgba(124,58,237,.3)"/>
-      <div style="display:flex;gap:8px">
+
+      <!-- Buttons -->
+      <div style="display:flex;gap:8px;margin-top:4px">
         <button onclick="addApiKey()"
           style="flex:1;padding:11px 0;border-radius:9px;border:none;cursor:pointer;
-          background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff;font-size:13px;font-weight:700;font-family:inherit">
+          background:${newKeyVal.trim()?"linear-gradient(135deg,#5b21b6,#7c3aed)":"#e2d9cf"};
+          color:${newKeyVal.trim()?"#fff":"#94887a"};font-size:13px;font-weight:700;font-family:inherit">
           <span style="display:inline-flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> যোগ করো</span>
         </button>
-        <button onclick="showAddKey=false;render()"
+        <button onclick="showAddKey=false;newKeyLabel='';newKeyVal='';newKeyProvider='gemini';newKeyModel='';render()"
           style="padding:11px 16px;border-radius:9px;border:1px solid rgba(255,255,255,.15);
           background:transparent;color:#94887a;cursor:pointer;font-family:inherit">বাতিল</button>
       </div>
@@ -2034,9 +2135,31 @@ function renderApiManager(){
       <span style="display:inline-flex;align-items:center;gap:4px;color:#22c55e"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ${bn(liveKeys.length)}টি সক্রিয়</span>
       ${liveKeys.length<apiKeys.length?`<span style="color:#94887a">·</span><span style="display:inline-flex;align-items:center;gap:4px;color:#f87171"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ${bn(apiKeys.length-liveKeys.length)}টি লিমিট শেষ</span>`:""}
       <span style="margin-left:auto;color:#7c3aed;font-size:10px">অটো ফেইলওভার চালু</span>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      ${["gemini","openai","anthropic","openrouter"].map(p=>{
+        const cnt=apiKeys.filter(k=>(k.provider||"gemini")===p).length;
+        if(cnt===0)return "";
+        const colors={gemini:"#b45309",openai:"#059669",anthropic:"#c2410c",openrouter:"#2563eb"};
+        const bgs={gemini:"rgba(234,179,8,.1)",openai:"rgba(16,163,127,.1)",anthropic:"rgba(214,90,49,.1)",openrouter:"rgba(59,130,246,.1)"};
+        const labels={gemini:"Gemini",openai:"GPT",anthropic:"Claude",openrouter:"OpenRouter"};
+        return `<span style="font-size:10px;padding:3px 9px;border-radius:20px;background:${bgs[p]};color:${colors[p]};font-weight:700">${labels[p]}: ${cnt}টি</span>`;
+      }).join("")}
     </div>`:"";
 
   return `<div class="section">
+    <!-- Built-in Claude AI Card -->
+    <div style="background:rgba(214,90,49,.06);border:1px solid rgba(214,90,49,.25);border-radius:14px;padding:13px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+      <div style="width:36px;height:36px;border-radius:10px;background:rgba(214,90,49,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:#c2410c">Built-in Claude AI ✓</div>
+        <div style="font-size:10px;color:#94887a;margin-top:2px">claude-sonnet-4 · কোনো Key ছাড়াই সক্রিয়</div>
+      </div>
+      <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;flex-shrink:0"></div>
+    </div>
+
     <!-- Firebase Status Card -->
     <div style="background:${window._fbReady?"rgba(34,197,94,.06)":"rgba(245,158,11,.06)"};border:1px solid ${window._fbReady?"rgba(34,197,94,.25)":"rgba(245,158,11,.25)"};border-radius:14px;padding:13px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
       <div style="width:36px;height:36px;border-radius:10px;background:${window._fbReady?"rgba(34,197,94,.12)":"rgba(245,158,11,.12)"};display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -2068,11 +2191,11 @@ function renderApiManager(){
         <span style="display:flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></span>
         <div>
           <div style="font-size:15px;font-weight:700;color:#7c3aed">API Key ম্যানেজার</div>
-          <div style="font-size:11px;color:#6b7280;margin-top:2px">একাধিক Key · অটো ফেইলওভার সিস্টেম</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px">Gemini · OpenAI · Claude · OpenRouter — অটো ফেইলওভার</div>
         </div>
       </div>
       <div style="font-size:11px;color:#94887a;line-height:1.8;border-top:1px solid rgba(124,58,237,.15);padding-top:10px">
-        একটি Key রেট-লিমিট হলে পরের Key-তে <span style="color:#7c3aed">স্বয়ংক্রিয়ভাবে</span> চলে যাবে।
+        Built-in Claude AI সবসময় সক্রিয়। বাড়তি Key যোগ করলে সেটা <span style="color:#7c3aed">প্রথমে</span> ব্যবহার হবে, শেষ হলে Built-in-এ ফিরে আসবে।
       </div>
     </div>
 
@@ -2093,7 +2216,7 @@ function renderApiManager(){
 
     ${apiKeys.length>0?`
     <!-- Reset All -->
-    <button onclick="apiKeys=apiKeys.map(k=>({...k,exhausted:false}));lsSet('hk_apikeys',apiKeys);render();showToast('সব Key রিসেট হয়েছে','','#3b82f6')"
+    <button onclick="apiKeys=apiKeys.map(k=>({...k,exhausted:false}));lsSet('hk_apikeys',apiKeys);render()"
       style="width:100%;padding:11px 0;border-radius:12px;border:1px solid rgba(0,0,0,.09);
       background:transparent;color:#6b7280;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;margin-top:8px">
       <span style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> সব Key রিসেট করো</span>
@@ -2494,11 +2617,13 @@ function addApiKey(){
   const label=newKeyLabel.trim()||"Key "+(apiKeys.length+1);
   const key=newKeyVal.trim();
   if(!key)return;
-  apiKeys=[...apiKeys,{id:Date.now().toString(),label,key,exhausted:false}];
+  const entry={id:Date.now().toString(),label,key,provider:newKeyProvider||"gemini",exhausted:false};
+  if(newKeyModel.trim())entry.model=newKeyModel.trim();
+  apiKeys=[...apiKeys,entry];
   lsSet("hk_apikeys",apiKeys);
   fbSyncSettings();
-  showAddKey=false;newKeyLabel="";newKeyVal="";
-  render();showToast("API Key যোগ হয়েছে","","#16a34a");
+  showAddKey=false;newKeyLabel="";newKeyVal="";newKeyProvider="gemini";newKeyModel="";
+  render();
 }
 function removeKey(id){
   apiKeys=apiKeys.filter(k=>k.id!==id);
@@ -2506,380 +2631,273 @@ function removeKey(id){
 }
 function resetKey(id){
   apiKeys=apiKeys.map(k=>k.id===id?{...k,exhausted:false}:k);
-  lsSet("hk_apikeys",apiKeys);fbSyncSettings();render();
-  showToast("Key রিসেট হয়েছে","","#3b82f6");
+  lsSet("hk_apikeys",apiKeys);render();
+}
+function markKeyExhausted(id){
+  apiKeys=apiKeys.map(k=>k.id===id?{...k,exhausted:true}:k);
 }
 
-// ── Error classification: is this a rate-limit/quota error? ──
-// শুধু true rate-limit (429) বা quota exhausted — overloaded আলাদা
-function isExhaustError(data, httpStatus){
-  // HTTP 429 = rate limit
-  if(httpStatus===429)return true;
-  if(!data)return false;
-  // Gemini error format: data.error.status বা data.error.message
-  const err=data.error||{};
-  const t=(err.type||err.status||"").toLowerCase();
-  const m=(err.message||"").toLowerCase();
-  return t==="rate_limit_error"||
-    t==="resource_exhausted"||
-    m.includes("rate limit")||
-    m.includes("quota")||
-    m.includes("resource_exhausted")||
-    m.includes("credit balance")||
-    m.includes("usage limit")||
-    (m.includes("exceeded")&&!m.includes("max_tokens"));
+// ── Error helpers ─────────────────────────────────────────
+function isExhaustError(data,status){
+  if(status===429)return true;
+  if(!data?.error)return false;
+  const t=(data.error.type||data.error.status||data.error.code||"").toLowerCase();
+  const m=(data.error.message||"").toLowerCase();
+  if(["resource_exhausted","insufficient_quota","rate_limit_exceeded","usage_limit_exceeded"].includes(t))return true;
+  if(["resource_exhausted","quota exceeded","quota_exceeded","daily limit","rate limit exceeded","credit balance","insufficient_quota"].some(s=>m.includes(s)))return true;
+  if(m.includes("billing")&&m.includes("limit"))return true;
+  if(t==="rate_limit_error"&&m.includes("limit"))return true;
+  return false;
 }
-// overloaded কিনা চেক (retry করা যাবে কিন্তু key exhausted নয়)
-function isOverloadedError(data, httpStatus){
-  if(httpStatus===529)return true;
-  if(!data||!data.error)return false;
+function isOverloadedError(data,status){
+  if(status===529||status===503)return true;
+  if(!data?.error)return false;
   const t=(data.error.type||"").toLowerCase();
   const m=(data.error.message||"").toLowerCase();
-  return t.includes("overloaded")||m.includes("overloaded");
+  return t==="server_error"||["overloaded","service unavailable"].some(s=>t.includes(s)||m.includes(s));
 }
 
-// ── Firebase থেকে fresh data fetch (AI-এর জন্য) ──────────
-async function fetchFbDataForAI(){
-  // Firebase ready থাকলে Firebase থেকে fetch করো
-  if(window._fbReady&&window.fbGetAll&&window.fbGetSettings){
-    try{
-      const [fbTX,fbTasks,fbNotes,fbSettings]=await Promise.all([
-        window.fbGetAll("transactions"),
-        window.fbGetAll("tasks"),
-        window.fbGetAll("notes"),
-        window.fbGetSettings(),
-      ]);
-      // Firebase-এ ডেটা থাকলে firebase, না থাকলে local fallback
-      const hasFirebaseData=(fbTX&&fbTX.length>0)||(fbTasks&&fbTasks.length>0)||(fbNotes&&fbNotes.length>0);
-      return{fbTX,fbTasks,fbNotes,fbSettings,source:hasFirebaseData?"firebase":"local"};
-    }catch(e){
-      console.error("AI Firebase fetch:",e);
-      // Firebase error হলে local ডেটা ব্যবহার করো
-      return{fbTX:TX,fbTasks:TASKS,fbNotes:NOTES,fbSettings:null,source:"local"};
+// ── API call ──────────────────────────────────────────────
+async function tryWithKey(keyObj,messages,systemPrompt){
+  const provider=keyObj.provider||"gemini";
+
+  if(provider==="gemini"){
+    const filtered=messages.filter((m,i)=>!(i===0&&m.role!=="user"));
+    const merged=[];
+    for(const m of filtered){
+      const prev=merged[merged.length-1];
+      if(prev&&prev.role===m.role)prev.content+="\n"+m.content;
+      else merged.push({...m});
     }
+    const contents=merged.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
+    const model=keyObj.model||"gemini-2.0-flash";
+    const body={contents,generationConfig:{maxOutputTokens:1000}};
+    if(systemPrompt)body.system_instruction={parts:[{text:systemPrompt}]};
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyObj.key}`,
+      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const raw=await r.json();
+    if(r.status===200&&raw.candidates?.[0])
+      return {data:{content:[{type:"text",text:raw.candidates[0].content?.parts?.[0]?.text||""}]},status:200};
+    if(raw.error)return {data:{error:{type:raw.error.status||"api_error",message:raw.error.message||"Gemini Error"}},status:r.status};
+    if(r.status===200){
+      const text=raw.promptFeedback?.blockReason?"Safety block: "+raw.promptFeedback.blockReason:"উত্তর পাওয়া যায়নি।";
+      return {data:{content:[{type:"text",text}]},status:200};
+    }
+    return {data:{error:{type:"api_error",message:"Gemini error (HTTP "+r.status+")"}},status:r.status};
   }
-  // Firebase ready না হলে local ডেটা দাও
-  return{fbTX:TX,fbTasks:TASKS,fbNotes:NOTES,fbSettings:null,source:"local"};
+
+  if(provider==="openai"||provider==="openrouter"){
+    const baseUrl=provider==="openrouter"?"https://openrouter.ai/api/v1/chat/completions":"https://api.openai.com/v1/chat/completions";
+    const model=keyObj.model||(provider==="openrouter"?"openai/gpt-4o-mini":"gpt-4o-mini");
+    const oaiMsgs=systemPrompt?[{role:"system",content:systemPrompt},...messages.map(m=>({role:m.role,content:m.content}))]
+                               :messages.map(m=>({role:m.role,content:m.content}));
+    const headers={"Content-Type":"application/json","Authorization":"Bearer "+keyObj.key};
+    if(provider==="openrouter"){headers["HTTP-Referer"]="https://tareqs-assistant.app";headers["X-Title"]="Tareq's Assistant";}
+    const r=await fetch(baseUrl,{method:"POST",headers,body:JSON.stringify({model,messages:oaiMsgs,max_tokens:1000})});
+    const raw=await r.json();
+    if(r.status===200&&raw.choices?.[0])
+      return {data:{content:[{type:"text",text:raw.choices[0].message?.content||""}]},status:200};
+    if(raw.error)return {data:{error:{type:raw.error.type||"api_error",message:raw.error.message||"OpenAI Error"}},status:r.status};
+    return {data:{error:{type:"api_error",message:"OpenAI error (HTTP "+r.status+")"}},status:r.status};
+  }
+
+  if(provider==="anthropic"){
+    const model=keyObj.model||"claude-haiku-4-5-20251001";
+    const r=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":keyObj.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model,max_tokens:1000,...(systemPrompt?{system:systemPrompt}:{}),messages:messages.map(m=>({role:m.role,content:m.content}))})
+    });
+    const raw=await r.json();
+    if(r.status===200&&raw.content?.[0])return {data:{content:[{type:"text",text:raw.content[0].text||""}]},status:200};
+    if(raw.error)return {data:{error:{type:raw.error.type||"api_error",message:raw.error.message||"Anthropic Error"}},status:r.status};
+    return {data:{error:{type:"api_error",message:"Anthropic error (HTTP "+r.status+")"}},status:r.status};
+  }
+
+  return {data:{error:{type:"api_error",message:"অজানা provider: "+provider}},status:400};
 }
 
-// local ও firebase data merge করো
-function mergeDataForAI(fbData){
-  // Firebase ডেটা থাকলে সেটা নাও, না থাকলে local state ব্যবহার করো
-  const txData  =(fbData.fbTX   &&fbData.fbTX.length>0)   ?fbData.fbTX.map(({_docId,...r})=>r)   :TX;
-  const taskData=(fbData.fbTasks&&fbData.fbTasks.length>0) ?fbData.fbTasks.map(({_docId,...r})=>r) :TASKS;
-  const noteData=(fbData.fbNotes&&fbData.fbNotes.length>0) ?fbData.fbNotes.map(({_docId,...r})=>r) :NOTES;
-  return{txData,taskData,noteData};
+// ── Built-in AI (কোনো বাইরের Key লাগবে না) ───────────────
+async function tryBuiltinAI(messages,systemPrompt){
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:1000,
+        ...(systemPrompt?{system:systemPrompt}:{}),
+        messages:messages.map(m=>({role:m.role,content:m.content}))
+      })
+    });
+    const raw=await r.json();
+    if(r.status===200&&raw.content?.[0])
+      return{data:{content:[{type:"text",text:raw.content[0].text||""}]},status:200};
+    if(raw.error)return{data:{error:{type:raw.error.type||"api_error",message:raw.error.message||"AI Error"}},status:r.status};
+    return{data:{error:{type:"api_error",message:"Built-in AI Error (HTTP "+r.status+")"}},status:r.status};
+  }catch(e){
+    return{data:{error:{type:"network_error",message:e.message}},status:0};
+  }
 }
 
-async function buildSystemPrompt(){
-  const fbData=await fetchFbDataForAI();
-  const{txData,taskData,noteData}=mergeDataForAI(fbData);
-  const dataSource=fbData.source==="firebase"?"🔥 Firebase (লাইভ ডেটা)":"💾 Local Storage";
-
+// ── System Prompt ─────────────────────────────────────────
+function buildSystemPrompt(){
   const moStr=`${new Date().getFullYear()}-${String(dMo+1).padStart(2,"0")}`;
-  const mTX=txData.filter(t=>t.date&&t.date.startsWith(moStr));
+  const mTX=TX.filter(t=>t.date&&t.date.startsWith(moStr));
   const inc=mTX.filter(t=>t.type==="income").reduce((s,t)=>s+Number(t.amount||0),0);
   const exp=mTX.filter(t=>t.type==="expense").reduce((s,t)=>s+Number(t.amount||0),0);
   const cats={};
   mTX.filter(t=>t.type==="expense").forEach(t=>{cats[t.category]=(cats[t.category]||0)+Number(t.amount||0);});
-
   const today=tdy();
-  const todayTasks=taskData.filter(t=>{
+  const todayTasks=TASKS.filter(t=>{
     if(t.repeat==="daily")return true;
-    if(t.repeat==="weekly"&&new Date(t.date).getDay()===new Date(today).getDay())return true;
-    if(t.repeat==="monthly"&&new Date(t.date).getDate()===new Date(today).getDate())return true;
+    if(t.repeat==="weekly"&&new Date(t.date).getDay()===new Date().getDay())return true;
+    if(t.repeat==="monthly"&&new Date(t.date).getDate()===new Date().getDate())return true;
     return t.date===today;
   });
-  const pendingTasks=taskData.filter(t=>!t.done);
-  const doneTasks=taskData.filter(t=>t.done);
-  const recentTx=txData.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,30);
-  const topCats=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  const pinnedNotes=noteData.filter(n=>n.pinned);
-  const recentNotes=noteData.slice(0,15);
-
-  // সব মাসের সারসংক্ষেপ (Firebase সম্পূর্ণ ডেটা)
-  const allMonths={};
-  txData.forEach(t=>{
-    if(!t.date)return;
-    const mo=t.date.slice(0,7);
-    if(!allMonths[mo])allMonths[mo]={inc:0,exp:0};
-    if(t.type==="income")allMonths[mo].inc+=Number(t.amount||0);
-    else allMonths[mo].exp+=Number(t.amount||0);
-  });
-  const monthSummary=Object.entries(allMonths)
-    .sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6)
-    .map(([mo,v])=>`• ${mo}: আয় ৳${v.inc.toLocaleString()}, খরচ ৳${v.exp.toLocaleString()}, ব্যালেন্স ৳${(v.inc-v.exp).toLocaleString()}`)
-    .join("\n")||"ডেটা নেই";
-
-  return `তুমি Tareq's Assistant — একটি বাংলা ব্যক্তিগত সহকারী অ্যাপের AI। তোমার কাছে ব্যবহারকারীর সব ডেটা আছে। বাংলায় সংক্ষিপ্ত, সহায়ক ও বন্ধুত্বপূর্ণভাবে উত্তর দাও।
+  const recentTX=TX.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,8);
+  const recentNotes=NOTES.slice(0,5).map(n=>({id:n.id,title:n.title,body:(n.body||"").slice(0,80)}));
+  return `তুমি Tareq-এর Personal Assistant। বাংলায় সংক্ষিপ্ত ও স্পষ্ট উত্তর দাও।
 
 আজকের তারিখ: ${today}
-ডেটা উৎস: ${dataSource}
-মোট রেকর্ড: লেনদেন ${txData.length}টি | কাজ ${taskData.length}টি | নোট ${noteData.length}টি
+এই মাসের আয়: ৳${inc.toLocaleString()} | খরচ: ৳${exp.toLocaleString()} | সঞ্চয়: ৳${(inc-exp).toLocaleString()}
+খরচের বিভাগ: ${Object.entries(cats).map(([k,v])=>`${k} ৳${v.toLocaleString()}`).join(", ")||"নেই"}
+আজকের কাজ (${todayTasks.length}টি): ${JSON.stringify(todayTasks.map(t=>({id:t.id,title:t.title,done:t.done,priority:t.priority})))}
+সাম্প্রতিক লেনদেন: ${JSON.stringify(recentTX.map(t=>({id:t.id,type:t.type,amount:t.amount,category:t.category,date:t.date})))}
+নোট: ${JSON.stringify(recentNotes)}
+মোট: লেনদেন ${TX.length}টি | কাজ ${TASKS.length}টি | নোট ${NOTES.length}টি
 
-══ আর্থিক সারসংক্ষেপ (${MBN[dMo]}) ══
-মোট আয়: ৳${inc.toLocaleString()}
-মোট খরচ: ৳${exp.toLocaleString()}
-ব্যালেন্স: ৳${(inc-exp).toLocaleString()}
-খরচের হার: ${Math.round((exp/(inc||1))*100)}%
-
-শীর্ষ খরচের বিভাগ:
-${topCats.map(([cat,amt])=>`• ${cat}: ৳${amt.toLocaleString()}`).join("\n")||"কোনো ডেটা নেই"}
-
-সাম্প্রতিক লেনদেন (সর্বশেষ ৩০টি):
-${recentTx.map(t=>`• [${t.date}] ${t.type==="income"?"আয়":"খরচ"} — ${t.category}: ৳${Number(t.amount||0).toLocaleString()}${t.note?" ("+t.note+")":" "}[id:${t.id}]`).join("\n")||"কোনো লেনদেন নেই"}
-
-গত ৬ মাসের সারসংক্ষেপ:
-${monthSummary}
-
-══ কাজ ও শিডিউল ══
-আজকের কাজ (${todayTasks.length}টি):
-${todayTasks.map(t=>`• [id:${t.id}] [${t.done?"✓":"○"}] ${t.title} | ${t.category} | ${t.priority==="high"?"জরুরি":t.priority==="mid"?"মাঝারি":"সাধারণ"}${t.alarm?" | এলার্ম: "+t.alarmTime:""}${t.note?" | "+t.note:""}`).join("\n")||"আজ কোনো কাজ নেই"}
-
-বাকি সব কাজ (${pendingTasks.length}টি):
-${pendingTasks.map(t=>`• [id:${t.id}] ${t.title} | ${t.date} | ${t.category} | ${t.priority==="high"?"জরুরি":t.priority==="mid"?"মাঝারি":"সাধারণ"} | ${t.repeat==="once"?"একবার":t.repeat==="daily"?"প্রতিদিন":t.repeat==="weekly"?"সাপ্তাহিক":"মাসিক"}${t.note?" | "+t.note:""}`).join("\n")||"কোনো বাকি কাজ নেই"}
-
-সম্পন্ন কাজ: ${doneTasks.length}টি
-
-══ নোট (মোট ${noteData.length}টি) ══
-পিন করা নোট:
-${pinnedNotes.map(n=>`• [id:${n.id}] ${n.title||"(শিরোনাম নেই)"}: ${n.body.slice(0,120)}${n.body.length>120?"...":""}`).join("\n")||"কোনো পিন করা নোট নেই"}
-
-সাম্প্রতিক নোট:
-${recentNotes.filter(n=>!n.pinned).map(n=>`• [id:${n.id}] [${n.date}] ${n.title||"(শিরোনাম নেই)"}: ${n.body.slice(0,100)}${n.body.length>100?"...":""}`).join("\n")||"কোনো নোট নেই"}
-
-══ ACTION সিস্টেম ══
-ব্যবহারকারী যদি কিছু যোগ বা আপডেট করতে বলে, তাহলে উত্তর অবশ্যই নিচের JSON ফরম্যাটে দিতে হবে:
-
-{
-  "reply": "বাংলায় সংক্ষিপ্ত উত্তর",
-  "actions": [
-    {"type":"add_task","title":"","date":"YYYY-MM-DD","time":"","alarmTime":"HH:MM","alarm":true,"repeat":"once/daily/weekly/monthly","priority":"high/mid/low","category":"ব্যক্তিগত/কাজ/স্বাস্থ্য/পরিবার/পড়াশোনা/শপিং/অন্যান্য","note":""},
-    {"type":"add_expense","amount":500,"category":"খাবার/বাড়িভাড়া/যাতায়াত/কেনাকাটা/চিকিৎসা/শিক্ষা/বিল/বিনোদন/অন্যান্য খরচ","note":"","date":"YYYY-MM-DD"},
-    {"type":"add_income","amount":5000,"category":"বেতন/ব্যবসা/ফ্রিল্যান্স/বিনিয়োগ/উপহার/অন্যান্য আয়","note":"","date":"YYYY-MM-DD"},
-    {"type":"add_note","title":"","body":""},
-    {"type":"delete_task","id":123},
-    {"type":"complete_task","id":123},
-    {"type":"delete_tx","id":123}
-  ]
+তুমি চাইলে action নিতে পারো। action নিলে এই JSON format-এ উত্তর দাও:
+{"reply":"বাংলায় উত্তর","actions":[
+  {"type":"add_task","title":"","date":"YYYY-MM-DD","time":"","alarm":true,"alarmTime":"HH:MM","repeat":"once","priority":"mid","category":"ব্যক্তিগত","note":""},
+  {"type":"add_expense","amount":0,"category":"খাবার","note":"","date":"YYYY-MM-DD"},
+  {"type":"add_income","amount":0,"category":"বেতন","note":"","date":"YYYY-MM-DD"},
+  {"type":"add_note","title":"","body":""},
+  {"type":"complete_task","id":0},
+  {"type":"delete_task","id":0},
+  {"type":"delete_tx","id":0}
+]}
+শুধু প্রশ্নের উত্তর হলে সাধারণ টেক্সটে দাও, JSON লাগবে না।`;
 }
 
-ACTION নিয়ম:
-• কাজ/শিডিউল/রিমাইন্ডার → add_task (সময় থাকলে alarm:true ও alarmTime দাও)
-• খরচ/কেনাকাটা/বিল/পেমেন্ট/দিয়েছি/কিনেছি → add_expense
-• আয়/বেতন/পেয়েছি/ইনকাম/ফ্রিল্যান্স/বিক্রি → add_income
-• নোট রাখতে বললে → add_note
-• কাজ সম্পন্ন → complete_task (id ব্যবহার করো)
-• মুছতে বললে → delete_task বা delete_tx
-• ডেটা জিজ্ঞাসা করলে Firebase+Local উভয় উৎসের তথ্য বিস্তারিত দাও
-• লেনদেন উল্লেখ থাকলে সবসময় JSON ফরম্যাটে উত্তর দাও
-• শুধু প্রশ্ন/আলোচনা → actions:[] দিয়ে plain বাংলায় উত্তর দাও
-• সংখ্যায় ৳ চিহ্ন ব্যবহার করো`;
-}
-async function tryWithKey(keyObj, messages, systemPrompt){
-  // Gemini API — system prompt + messages কে Gemini ফরম্যাটে রূপান্তর
-  const geminiContents=messages.map(m=>({
-    role:m.role==="assistant"?"model":"user",
-    parts:[{text:m.content}]
-  }));
-  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keyObj.key}`,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      system_instruction:{parts:[{text:systemPrompt}]},
-      contents:geminiContents,
-      generationConfig:{maxOutputTokens:1000}
-    }),
-  });
-  const raw=await r.json();
-  // Gemini response-কে Anthropic-এর মতো ফরম্যাটে রূপান্তর (বাকি কোড অপরিবর্তিত থাকে)
-  let data=raw;
-  if(raw.candidates&&raw.candidates[0]){
-    const text=raw.candidates[0].content?.parts?.[0]?.text||"";
-    data={content:[{type:"text",text}]};
-  } else if(raw.error){
-    data={error:{type:"api_error",message:raw.error.message||"Gemini API Error"}};
-  }
-  return {data, status:r.status};
-}
-
+// ── sendChat ──────────────────────────────────────────────
 async function sendChat(){
   const inp=document.getElementById("chat-inp");
   const msg=(inp?inp.value:chatInpVal).trim();
   if(!msg||chatLoading)return;
-  if(apiKeys.length===0){
-    addSysNotif("api_no_key","Assistant ট্যাব থেকে Key যোগ করো");showToast("কোনো API Key নেই","Assistant ট্যাব থেকে Key যোগ করো","#dc2626");
-    return;
-  }
+
   chatMsgs=[...chatMsgs,{role:"user",content:msg}];
   chatInpVal="";chatLoading=true;render();
 
-  // Firebase + Local data মিলিয়ে system prompt বানাও (প্রতিটি request-এ fresh)
   let systemPrompt;
-  try{
-    systemPrompt=await buildSystemPrompt();
-  }catch(e){
-    console.error("buildSystemPrompt failed:",e);
-    // fallback: local data দিয়ে basic prompt
-    const fbSource=window._fbReady?"🔥 Firebase":"💾 Local Storage";
-    systemPrompt=`তুমি Tareq's Assistant — একটি বাংলা ব্যক্তিগত সহকারী অ্যাপের AI। বাংলায় সংক্ষিপ্তভাবে উত্তর দাও।
-আজকের তারিখ: ${tdy()}
-ডেটা উৎস: ${fbSource}
-লেনদেন: ${TX.length}টি | কাজ: ${TASKS.length}টি | নোট: ${NOTES.length}টি`;
-  }
+  try{systemPrompt=buildSystemPrompt();}
+  catch(e){systemPrompt=`তুমি Tareq-এর Personal Assistant। বাংলায় সংক্ষিপ্ত ও স্পষ্ট উত্তর দাও। আজকের তারিখ: ${tdy()}`;}
 
-  const liveKeys=apiKeys.filter(k=>!k.exhausted);
-  if(liveKeys.length===0){
-    // সব key exhausted — ব্যবহারকারীকে জানাও, নীরবে reset করবো না
-    chatMsgs=[...chatMsgs,{role:"assistant",content:"⚠️ সব API Key-এর লিমিট শেষ হয়ে গেছে। Settings থেকে নতুন Key যোগ করো বা পুরনো Key রিসেট করো।"}];
-    addSysNotif("api_limit","সব API Key-এর লিমিট শেষ — নতুন Key যোগ করো");
-    chatLoading=false;render();return;
-  }
-
+  const history=chatMsgs.slice(-20);
   let replied=false;
-  // শুধু live (non-exhausted) keys দিয়ে চেষ্টা করো
-  const tryOrder=[...liveKeys];
 
-  // conversation history: system prompt আলাদা রাখো, messages-এ শুধু user/assistant turns
-  // কিন্তু context window ছোট রাখতে শেষ ২০টি message রাখো
-  const historyWindow=chatMsgs.slice(-20);
-
-  for(let i=0;i<tryOrder.length;i++){
-    const keyObj=tryOrder[i];
+  // ── AI response প্রসেস করার helper ──────────────────────
+  function processAIResponse(raw){
+    let parsed=null;
     try{
-      const {data,status}=await tryWithKey(keyObj, historyWindow, systemPrompt);
+      const clean=raw.replace(/```json([\s\S]*?)```/g,(_,g)=>g.trim()).replace(/```/g,"").trim();
+      if(clean.startsWith("{"))parsed=JSON.parse(clean);
+    }catch(_){}
+
+    if(parsed?.actions?.length>0){
+      const done=[];
+      for(const a of parsed.actions){
+        if(a.type==="add_task"){
+          TASKS=[...TASKS,{id:Date.now()+Math.random(),title:a.title||"নতুন কাজ",date:a.date||tdy(),time:a.time||"",alarm:!!a.alarm,alarmTime:a.alarmTime||"09:00",repeat:a.repeat||"once",priority:a.priority||"mid",category:a.category||"ব্যক্তিগত",note:a.note||"",done:false}];
+          done.push("✅ কাজ যোগ: "+a.title+(a.alarmTime?" ⏰"+a.alarmTime:""));
+        }else if(a.type==="add_expense"){
+          TX=[...TX,{id:Date.now()+Math.random(),type:"expense",amount:Number(a.amount)||0,category:a.category||"অন্যান্য খরচ",note:a.note||"",date:a.date||tdy()}];
+          done.push("💸 খরচ: ৳"+Number(a.amount).toLocaleString()+" ("+a.category+")");
+        }else if(a.type==="add_income"){
+          TX=[...TX,{id:Date.now()+Math.random(),type:"income",amount:Number(a.amount)||0,category:a.category||"অন্যান্য আয়",note:a.note||"",date:a.date||tdy()}];
+          done.push("💰 আয়: ৳"+Number(a.amount).toLocaleString()+" ("+a.category+")");
+        }else if(a.type==="add_note"){
+          NOTES=[{id:Date.now()+Math.random(),title:a.title||"",body:a.body||"",color:0,pinned:false,date:tdy(),labels:[]},...NOTES];
+          done.push("📝 নোট: "+(a.title||(a.body||"").slice(0,30)));
+        }else if(a.type==="complete_task"){
+          const t=TASKS.find(t=>String(t.id)===String(a.id));
+          if(t){TASKS=TASKS.map(x=>x.id===t.id?{...x,done:true}:x);done.push("✔️ সম্পন্ন: "+t.title);}
+        }else if(a.type==="delete_task"){
+          const t=TASKS.find(t=>String(t.id)===String(a.id));
+          if(t){TASKS=TASKS.filter(x=>x.id!==t.id);done.push("🗑️ মুছলাম: "+t.title);}
+        }else if(a.type==="delete_tx"){
+          const t=TX.find(t=>String(t.id)===String(a.id));
+          if(t){TX=TX.filter(x=>x.id!==t.id);done.push("🗑️ লেনদেন মুছলাম");}
+        }
+      }
+      save();
+      const reply=(parsed.reply||"সম্পন্ন।")+(done.length?"\n\n"+done.join("\n"):"");
+      chatMsgs=[...chatMsgs,{role:"assistant",content:reply}];
+      if(done.length)addSysNotif("db_sync","AI: "+done.length+"টি কাজ সম্পন্ন");
+    }else{
+      chatMsgs=[...chatMsgs,{role:"assistant",content:parsed?.reply||raw}];
+    }
+  }
+
+  // ── ১. প্রথমে User-added Keys চেষ্টা করো ────────────────
+  const liveKeys=apiKeys.filter(k=>!k.exhausted);
+  for(const keyObj of liveKeys){
+    try{
+      const {data,status}=await tryWithKey(keyObj,history,systemPrompt);
       if(status===429||isExhaustError(data,status)){
         markKeyExhausted(keyObj.id);
-        const keyName=keyObj.label||"Key "+(apiKeys.findIndex(k=>k.id===keyObj.id)+1);
-        addSysNotif("api_limit",`${keyName} লিমিট শেষ — পরের Key-তে শিফট হচ্ছে`);
-        showToast(`${keyName} লিমিট শেষ`,"পরের Key-তে শিফট হচ্ছে...","#f59e0b");
+        const name=keyObj.label||"Key "+(apiKeys.findIndex(k=>k.id===keyObj.id)+1);
+        addSysNotif("api_limit",`${name} লিমিট শেষ — Built-in AI-তে যাচ্ছে`);
         continue;
       }
-      if(isOverloadedError(data,status)){
-        // overloaded = সার্ভার ব্যস্ত, key exhausted নয় — এই key skip করো কিন্তু mark করো না
-        showToast("সার্ভার ব্যস্ত","কিছুক্ষণ পর আবার চেষ্টা করো","#f59e0b");
-        continue;
-      }
+      if(isOverloadedError(data,status))continue;
       if(data.error){
-        const errMsg="[!] "+(data.error.message||"API Error");
-        chatMsgs=[...chatMsgs,{role:"assistant",content:errMsg}];
-        addSysNotif("api_error",data.error.message||"AI থেকে এরর রেসপন্স");
-        replied=true;break;
+        addSysNotif("api_error",(keyObj.label||"Key")+" — "+(data.error.message||"error"));
+        continue;
       }
-
       const raw=data.content?.[0]?.text||"উত্তর পাওয়া যায়নি।";
-
-      // JSON action response কিনা চেক করো
-      let parsed=null;
-      try{
-        const clean=raw.replace(/```json[\s\S]*?```/g,m=>m.slice(7,-3).trim())
-                       .replace(/```/g,"").trim();
-        if(clean.startsWith("{")){
-          parsed=JSON.parse(clean);
-        }
-      }catch(_){parsed=null;}
-
-      if(parsed && Array.isArray(parsed.actions) && parsed.actions.length>0){
-        // Action apply করো
-        const actionsDone=[];
-        for(const a of parsed.actions){
-          if(a.type==="add_task"){
-            TASKS=[...TASKS,{
-              id:Date.now()+Math.random(),title:a.title||"নতুন কাজ",
-              date:a.date||tdy(),time:a.time||"",alarm:!!a.alarm,
-              alarmTime:a.alarmTime||"09:00",repeat:a.repeat||"once",
-              priority:a.priority||"mid",category:a.category||"ব্যক্তিগত",
-              note:a.note||"",done:false
-            }];
-            actionsDone.push("✅ শিডিউল যোগ: "+a.title+(a.date?" ("+a.date+")":"")+(a.alarmTime?" ⏰"+a.alarmTime:""));
-          }
-          else if(a.type==="add_expense"){
-            TX=[...TX,{id:Date.now()+Math.random(),type:"expense",
-              amount:Number(a.amount)||0,category:a.category||"অন্যান্য খরচ",
-              note:a.note||"",date:a.date||tdy()}];
-            actionsDone.push("💸 খরচ যোগ: ৳"+Number(a.amount).toLocaleString()+" — "+a.category);
-          }
-          else if(a.type==="add_income"){
-            TX=[...TX,{id:Date.now()+Math.random(),type:"income",
-              amount:Number(a.amount)||0,category:a.category||"অন্যান্য আয়",
-              note:a.note||"",date:a.date||tdy()}];
-            actionsDone.push("💰 আয় যোগ: ৳"+Number(a.amount).toLocaleString()+" — "+a.category);
-          }
-          else if(a.type==="add_note"){
-            NOTES=[{id:Date.now()+Math.random(),title:a.title||"",body:a.body||"",
-              color:0,pinned:false,date:tdy(),labels:[]},...NOTES];
-            actionsDone.push("📝 নোট যোগ: "+(a.title||a.body?.slice(0,30)));
-          }
-          else if(a.type==="complete_task"){
-            const tid=Number(a.id);
-            const found=TASKS.find(t=>t.id===tid||String(t.id)===String(a.id));
-            if(found){
-              TASKS=TASKS.map(t=>(t.id===found.id)?{...t,done:true}:t);
-              actionsDone.push("✔️ সম্পন্ন: "+(found.title||"কাজ"));
-            }
-          }
-          else if(a.type==="delete_task"){
-            const tid=Number(a.id);
-            const found=TASKS.find(t=>t.id===tid||String(t.id)===String(a.id));
-            if(found){
-              TASKS=TASKS.filter(t=>t.id!==found.id);
-              actionsDone.push("🗑️ মুছে ফেলা: "+(found.title||"কাজ"));
-            }
-          }
-          else if(a.type==="delete_tx"){
-            const tid=Number(a.id);
-            const found=TX.find(t=>t.id===tid||String(t.id)===String(a.id));
-            if(found){
-              TX=TX.filter(t=>t.id!==found.id);
-              actionsDone.push("🗑️ লেনদেন মুছে ফেলা");
-            }
-          }
-        }
-        save();
-
-        // chat-এ reply + action summary দেখাও
-        const replyText=parsed.reply||"সম্পন্ন হয়েছে।";
-        const summary=actionsDone.length>0?"\n\n"+actionsDone.join("\n"):"";
-        chatMsgs=[...chatMsgs,{role:"assistant",content:replyText+summary}];
-        if(actionsDone.length>0){
-          showToast("ডেটা আপডেট হয়েছে","Firebase-এ সংরক্ষিত হচ্ছে...","#22c55e");
-          addSysNotif("db_sync","AI action সম্পন্ন: "+actionsDone.length+"টি কাজ হয়েছে");
-        }
-      } else {
-        // সাধারণ উত্তর — reply field থাকলে সেটা, না হলে raw text
-        const replyText=(parsed&&parsed.reply)?parsed.reply:raw;
-        chatMsgs=[...chatMsgs,{role:"assistant",content:replyText}];
-      }
-
-      replied=true;
-      // সফল key-কে active হিসেবে mark করো
-      currentKeyIdx=apiKeys.filter(k=>!k.exhausted).findIndex(k=>k.id===keyObj.id);
-      if(currentKeyIdx<0)currentKeyIdx=0;
-      break;
+      processAIResponse(raw);
+      replied=true;break;
     }catch(e){
-      console.error("sendChat key error:",e);
+      console.error("sendChat ["+(keyObj.label||keyObj.id)+"]:",e.message);
       continue;
     }
   }
 
+  // ── ২. Built-in AI fallback (সবসময় পাওয়া যাবে) ─────────
   if(!replied){
-    chatMsgs=[...chatMsgs,{role:"assistant",content:"সব API Key-এর লিমিট শেষ হয়ে গেছে। নতুন Key যোগ করো বা কিছুক্ষণ পর আবার চেষ্টা করো।"}];
-    addSysNotif("api_error","সব API Key exhausted — chat ব্যর্থ");
+    try{
+      const {data,status}=await tryBuiltinAI(history,systemPrompt);
+      if(status===200&&!data.error){
+        const raw=data.content?.[0]?.text||"উত্তর পাওয়া যায়নি।";
+        processAIResponse(raw);
+        replied=true;
+      }else if(data.error){
+        chatMsgs=[...chatMsgs,{role:"assistant",content:"⚠️ "+(data.error.message||"AI সংযোগে সমস্যা")}];
+        replied=true;
+      }
+    }catch(e){
+      console.error("Built-in AI:",e.message);
+    }
+  }
+
+  if(!replied){
+    chatMsgs=[...chatMsgs,{role:"assistant",content:"⚠️ সংযোগ হয়নি — ইন্টারনেট চেক করো।"}];
   }
 
   chatLoading=false;render();
-  // chat area-এর শেষে scroll করো
-  setTimeout(()=>{
-    const ca=document.getElementById("chat-area");
-    if(ca)ca.scrollTop=ca.scrollHeight;
-  },50);
+  setTimeout(()=>{const ca=document.getElementById("chat-area");if(ca)ca.scrollTop=ca.scrollHeight;},50);
 }
 
-// ── Voice AI System ──────────────────────────────────────
-let recognition=null;
-let voiceRecognizing=false;
 
-function showVoiceToast(msg,duration=0){
+
+// ── AI-এর জন্য শুধু Local data ─────────────────────────────
+// Firebase-এর সাথে AI-এর কোনো সংযোগ নেই
+// Firebase → local sync হয় (_fbOnReady-তে), AI সেই local data পড়ে
+
+
+function toggleVoice(){}
+function showVoiceToast(msg,duration){
   const el=document.getElementById("voice-toast");
   if(!el)return;
   el.textContent=msg;
@@ -2891,221 +2909,12 @@ function hideVoiceToast(){
   if(el)el.classList.remove("show");
 }
 
-function toggleVoice(){
-  if(voiceState==="listening"){
-    stopVoice();return;
-  }
-  if(voiceState==="processing")return;
-  startVoice();
-}
-
-function startVoice(){
-  if(!("webkitSpeechRecognition"in window||"SpeechRecognition"in window)){
-    addSysNotif("app_error","ভয়েস রিকগনিশন সাপোর্ট নেই — Chrome ব্যবহার করো");showToast("ব্রাউজার সাপোর্ট নেই","Chrome ব্যবহার করো","#dc2626");return;
-  }
-  if(apiKeys.length===0){
-    addSysNotif("api_no_key","API Keys মেনু থেকে Key যোগ করো");showToast("কোনো API Key নেই","API Keys মেনু থেকে Key যোগ করো","#dc2626");return;
-  }
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  recognition=new SR();
-  recognition.lang="bn-BD";
-  recognition.continuous=false;
-  recognition.interimResults=true;
-  recognition.maxAlternatives=1;
-
-  // transcript tracking — init before start()
-  recognition._lastFinal="";
-  recognition._interim="";
-
-  recognition.onstart=()=>{
-    voiceRecognizing=true;
-    voiceState="listening";
-    render();
-    showVoiceToast("বলো... (আবার ট্যাপ করলে থামবে)");
-  };
-
-  recognition.onresult=(e)=>{
-    let final="",interim="";
-    for(const r of e.results){
-      if(r.isFinal)final+=r[0].transcript;
-      else interim+=r[0].transcript;
-    }
-    if(final)recognition._lastFinal=final;
-    recognition._interim=interim;
-    const display=final||interim;
-    if(display)showVoiceToast('"'+display+'"');
-  };
-
-  recognition.onend=async()=>{
-    if(!voiceRecognizing)return;
-    voiceRecognizing=false;
-    const lastTranscript=(recognition._lastFinal||recognition._interim||"").trim();
-    if(!lastTranscript){
-      voiceState="idle";render();hideVoiceToast();
-      showToast("কিছু শোনা যায়নি","আবার চেষ্টা করো","#f59e0b");
-      return;
-    }
-    await processVoiceInput(lastTranscript);
-  };
-
-  recognition.onerror=(e)=>{
-    voiceRecognizing=false;
-    voiceState="idle";render();hideVoiceToast();
-    if(e.error!=="aborted"){addSysNotif("app_error","ভয়েস রিকগনিশন এরর: "+e.error);showToast("ভয়েস এরর","আবার চেষ্টা করো","#dc2626");}
-  };
-
-  recognition.start();
-}
-
-function stopVoice(){
-  voiceRecognizing=false;
-  if(recognition){try{recognition.stop();}catch(_){}}
-}
-
-async function processVoiceInput(text){
-  voiceState="processing";
-  render();
-  showVoiceToast("AI বিশ্লেষণ করছে...");
-
-  // Firebase + Local data দিয়ে context বানাও
-  const fbData=await fetchFbDataForAI();
-  const{txData,taskData,noteData}=mergeDataForAI(fbData);
-  const dataSource=fbData.source==="firebase"?"🔥 Firebase":"💾 Local";
-
-  const context=`আজকের তারিখ: ${tdy()}। ডেটা উৎস: ${dataSource}
-কাজের তালিকা (${taskData.length}টি): ${JSON.stringify(taskData.map(t=>({id:t.id,title:t.title,date:t.date,done:t.done,category:t.category,priority:t.priority})))}
-সাম্প্রতিক লেনদেন (${txData.length}টি মোট, শেষ ১০টি): ${JSON.stringify(txData.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,10).map(t=>({id:t.id,type:t.type,amount:t.amount,category:t.category,note:t.note,date:t.date})))}
-নোট (${noteData.length}টি, শেষ ৫টি): ${JSON.stringify(noteData.slice(0,5).map(n=>({id:n.id,title:n.title,body:n.body.slice(0,60)})))}
-
-ব্যবহারকারী বলেছে: "${text}"
-
-তোমাকে নিচের JSON ফরম্যাটে উত্তর দিতে হবে (অন্য কিছু লিখবে না):
-{
-  "reply": "বাংলায় সংক্ষিপ্ত উত্তর",
-  "actions": [
-    {"type":"add_task","title":"","date":"YYYY-MM-DD","time":"","alarmTime":"HH:MM","alarm":true,"repeat":"once","priority":"mid","category":"ব্যক্তিগত","note":""},
-    {"type":"add_expense","amount":500,"category":"খাবার","note":"","date":"YYYY-MM-DD"},
-    {"type":"add_income","amount":5000,"category":"বেতন","note":"","date":"YYYY-MM-DD"},
-    {"type":"add_note","title":"","body":""},
-    {"type":"complete_task","id":123},
-    {"type":"delete_task","id":123},
-    {"type":"delete_tx","id":123}
-  ]
-}
-
-নিয়ম:
-- খরচের কথা → add_expense
-- আয়ের কথা → add_income
-- কাজ/শিডিউল/রিমাইন্ডার → add_task (সময় থাকলে alarm চালু)
-- নোট → add_note
-- কাজ সম্পন্ন → complete_task (id দিয়ে)
-- মুছতে → delete_task/delete_tx
-- ডেটা জিজ্ঞাসা করলে Firebase+Local উভয়ের তথ্য দাও
-- actions এ শুধু প্রয়োজনীয়টুকু, reply বাংলায় ১-২ বাক্য`;
-
-  const liveKeys=apiKeys.filter(k=>!k.exhausted);
-  if(liveKeys.length===0){
-    voiceState="idle";render();hideVoiceToast();
-    addSysNotif("api_limit","সব API Key-এর লিমিট শেষ — নতুন Key যোগ করো");
-    showToast("সব Key-এর লিমিট শেষ","Settings থেকে নতুন Key যোগ করো","#dc2626");
-    return;
-  }
-
-  const tryOrder=[...liveKeys];
-  let replied=false;
-
-  for(const keyObj of tryOrder){
-    try{
-      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keyObj.key}`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          contents:[{role:"user",parts:[{text:context}]}],
-          generationConfig:{maxOutputTokens:800}
-        }),
-      });
-      const rawJson=await r.json();
-      // Gemini response normalize
-      let data;
-      if(rawJson.candidates&&rawJson.candidates[0]){
-        const text=rawJson.candidates[0].content?.parts?.[0]?.text||"{}";
-        data={content:[{type:"text",text}]};
-      } else if(rawJson.error){
-        data={error:{type:"api_error",message:rawJson.error.message||"Gemini API Error"}};
-      } else {
-        data={content:[{type:"text",text:"{}"}]};
-      }
-      if(r.status===429||isExhaustError(rawJson,r.status)){markKeyExhausted(keyObj.id);continue;}
-      if(isOverloadedError(rawJson,r.status)){showToast("সার্ভার ব্যস্ত","কিছুক্ষণ পর আবার চেষ্টা করো","#f59e0b");continue;}
-      if(data.error){addSysNotif("api_error",data.error.message||"AI থেকে এরর রেসপন্স");showToast("AI এরর",data.error.message||"","#dc2626");break;}
-
-      const raw=data.content?.[0]?.text||"{}";
-      let parsed={reply:"",actions:[]};
-      try{
-        const clean=raw.replace(/```json|```/g,"").trim();
-        parsed=JSON.parse(clean);
-      }catch(_){parsed={reply:raw,actions:[]};}
-
-      // Apply actions
-      let actionsDone=[];
-      for(const a of (parsed.actions||[])){
-        if(a.type==="add_task"){
-          TASKS=[...TASKS,{
-            id:Date.now()+Math.random(),title:a.title||"নতুন কাজ",
-            date:a.date||tdy(),time:a.time||"",alarm:a.alarm!==false,
-            alarmTime:a.alarmTime||"09:00",repeat:a.repeat||"once",
-            priority:a.priority||"mid",category:a.category||"ব্যক্তিগত",
-            note:a.note||"",done:false
-          }];
-          actionsDone.push("কাজ যোগ: "+a.title);
-        }
-        else if(a.type==="add_expense"){
-          TX=[...TX,{id:Date.now()+Math.random(),type:"expense",
-            amount:Number(a.amount)||0,category:a.category||"অন্যান্য খরচ",
-            note:a.note||"",date:a.date||tdy()}];
-          actionsDone.push("খরচ: ৳"+a.amount+" ("+a.category+")");
-        }
-        else if(a.type==="add_income"){
-          TX=[...TX,{id:Date.now()+Math.random(),type:"income",
-            amount:Number(a.amount)||0,category:a.category||"অন্যান্য আয়",
-            note:a.note||"",date:a.date||tdy()}];
-          actionsDone.push("আয়: ৳"+a.amount+" ("+a.category+")");
-        }
-        else if(a.type==="add_note"){
-          NOTES=[{id:Date.now()+Math.random(),title:a.title||"",body:a.body||"",
-            color:0,pinned:false,date:tdy()},...NOTES];
-          actionsDone.push("নোট: "+(a.title||a.body?.slice(0,20)));
-        }
-      }
-      save();
-
-      // Chat মেসেজে যোগ করো (assistant ট্যাবে দেখাবে)
-      chatMsgs=[...chatMsgs,{role:"user",content:text},{role:"assistant",content:parsed.reply||(actionsDone.length?"সম্পন্ন হয়েছে।":"বুঝতে পারিনি।")}];
-
-      voiceState="idle";render();
-      hideVoiceToast();
-      if(actionsDone.length>0){
-        showVoiceToast(parsed.reply+"\n\n"+actionsDone.join("\n"),5000);
-      } else {
-        showVoiceToast(parsed.reply||"সম্পন্ন",4000);
-      }
-      replied=true;break;
-    }catch(e){continue;}
-  }
-
-  if(!replied){
-    voiceState="idle";render();hideVoiceToast();
-    addSysNotif("api_error","AI সার্ভারে সংযোগ ব্যর্থ হয়েছে");showToast("সংযোগ ব্যর্থ","আবার চেষ্টা করো","#dc2626");
-  }
-}
-
 // ── Manual Sync ───────────────────────────────────────────
 async function manualFbSync(){
   if(!window._fbReady){
     showToast("Firebase সংযুক্ত নয়","কিছুক্ষণ অপেক্ষা করো","#f59e0b");return;
   }
   updateSyncStatus("syncing");
-  showToast("সিঙ্ক হচ্ছে...","Firebase-এ ডেটা পাঠানো হচ্ছে","#3b82f6");
   try{
     await Promise.all([
       window.fbSetCollection("transactions",TX,"id"),
@@ -3116,7 +2925,6 @@ async function manualFbSync(){
       window.fbSetSettings({apiKeys,notePIN:NOTE_PIN||"",updatedAt:new Date().toISOString()}),
     ]);
     updateSyncStatus("synced");
-    showToast("সিঙ্ক সম্পন্ন ✓","সব ডেটা Firebase-এ সেভ হয়েছে","#22c55e");
     addSysNotif("db_sync","ম্যানুয়াল সিঙ্ক সফল হয়েছে ✓");
   }catch(e){
     updateSyncStatus("error");
@@ -3135,7 +2943,6 @@ setTimeout(()=>{
     const uid=window._fbUid;
     const msg="Firebase সংযোগ সফল ✅ (UID: "+uid.slice(0,12)+"...)";
     addSysNotif("fb_connected",msg);
-    showToast("Firebase সংযুক্ত ✅","ডেটা সিঙ্ক শুরু হচ্ছে...","#22c55e");
     window._fbOnReady();
   }
 },500);
