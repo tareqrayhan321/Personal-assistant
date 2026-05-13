@@ -2691,9 +2691,6 @@ function isOverloadedError(data,status){
   return t==="server_error"||["overloaded","service unavailable"].some(s=>t.includes(s)||m.includes(s));
 }
 
-// ── Proxy URL (Cloudflare Worker) ────────────────────────
-const PROXY="https://personalassistant.tareqrayhan1.workers.dev";
-
 // ── API call ──────────────────────────────────────────────
 async function tryWithKey(keyObj,messages,systemPrompt){
   const provider=keyObj.provider||"gemini";
@@ -2708,33 +2705,47 @@ async function tryWithKey(keyObj,messages,systemPrompt){
     }
     const contents=merged.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
     const model=keyObj.model||"gemini-2.0-flash";
-    const body={key:keyObj.key,model,contents,generationConfig:{maxOutputTokens:1000}};
+    const body={contents,generationConfig:{maxOutputTokens:2048}};
     if(systemPrompt)body.system_instruction={parts:[{text:systemPrompt}]};
-    const r=await fetch(`${PROXY}/gemini`,
-      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const r=await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyObj.key}`,
+      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}
+    );
     const raw=await r.json();
     if(r.status===200&&raw.candidates?.[0])
       return {data:{content:[{type:"text",text:raw.candidates[0].content?.parts?.[0]?.text||""}]},status:200};
-    if(raw.error)return {data:{error:{type:raw.error.status||raw.error.code||"api_error",status:raw.error.status||"",code:raw.error.code||"",message:raw.error.message||"Gemini Error"}},status:r.status};
-    if(r.status===200){
-      const text=raw.promptFeedback?.blockReason?"Safety block: "+raw.promptFeedback.blockReason:"উত্তর পাওয়া যায়নি।";
-      return {data:{content:[{type:"text",text}]},status:200};
-    }
-    return {data:{error:{type:"api_error",message:"Gemini error (HTTP "+r.status+")"}},status:r.status};
+    if(raw.error)return {data:{error:{type:raw.error.status||"api_error",message:raw.error.message||"Gemini Error"}},status:r.status};
+    const text=raw.promptFeedback?.blockReason?"Safety block: "+raw.promptFeedback.blockReason:"উত্তর পাওয়া যায়নি।";
+    return {data:{content:[{type:"text",text}]},status:200};
   }
 
-  if(provider==="openai"||provider==="openrouter"){
-    const endpoint=provider==="openrouter"?"/openrouter":"/openai";
-    const model=keyObj.model||(provider==="openrouter"?"openai/gpt-4o-mini":"gpt-4o-mini");
+  if(provider==="openrouter"){
+    const model=keyObj.model||"openai/gpt-4o-mini";
     const oaiMsgs=systemPrompt?[{role:"system",content:systemPrompt},...messages.map(m=>({role:m.role,content:m.content}))]
                                :messages.map(m=>({role:m.role,content:m.content}));
-    const r=await fetch(`${PROXY}${endpoint}`,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({key:keyObj.key,model,messages:oaiMsgs,max_tokens:1000})});
+    const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+keyObj.key,
+        "HTTP-Referer":"https://tareqrayhan321.github.io","X-Title":"Tareq's Assistant"},
+      body:JSON.stringify({model,messages:oaiMsgs,max_tokens:1000})});
     const raw=await r.json();
     if(r.status===200&&raw.choices?.[0])
       return {data:{content:[{type:"text",text:raw.choices[0].message?.content||""}]},status:200};
-    if(raw.error)return {data:{error:{type:raw.error.type||"api_error",code:raw.error.code||"",message:raw.error.message||"OpenAI Error"}},status:r.status};
-    return {data:{error:{type:"api_error",message:"OpenAI/OpenRouter error (HTTP "+r.status+")"}},status:r.status};
+    if(raw.error)return {data:{error:{type:raw.error.type||"api_error",message:raw.error.message||"OpenRouter Error"}},status:r.status};
+    return {data:{error:{type:"api_error",message:"OpenRouter error (HTTP "+r.status+")"}},status:r.status};
+  }
+
+  if(provider==="openai"){
+    const model=keyObj.model||"gpt-4o-mini";
+    const oaiMsgs=systemPrompt?[{role:"system",content:systemPrompt},...messages.map(m=>({role:m.role,content:m.content}))]
+                               :messages.map(m=>({role:m.role,content:m.content}));
+    const r=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+keyObj.key},
+      body:JSON.stringify({model,messages:oaiMsgs,max_tokens:1000})});
+    const raw=await r.json();
+    if(r.status===200&&raw.choices?.[0])
+      return {data:{content:[{type:"text",text:raw.choices[0].message?.content||""}]},status:200};
+    if(raw.error)return {data:{error:{type:raw.error.type||"api_error",message:raw.error.message||"OpenAI Error"}},status:r.status};
+    return {data:{error:{type:"api_error",message:"OpenAI error (HTTP "+r.status+")"}},status:r.status};
   }
 
   if(provider==="anthropic"){
