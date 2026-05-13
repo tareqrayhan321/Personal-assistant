@@ -741,7 +741,17 @@ function ncCtxShare(noteId){
   }
   closeNoteCardCtx();
 }
-let apiKeys=lsGet("hk_apikeys",[]);
+// short → full API model name mapping (Anthropic requires full versioned name)
+const _modelFix={
+  'claude-haiku-4-5':'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-5':'claude-sonnet-4-5-20251001',
+  'claude-opus-4-5':'claude-opus-4-5-20251001',
+  // keep already-correct names as-is
+  'claude-haiku-4-5-20251001':'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-5-20251001':'claude-sonnet-4-5-20251001',
+  'claude-opus-4-5-20251001':'claude-opus-4-5-20251001',
+};
+let apiKeys=lsGet("hk_apikeys",[]).map(k=>({...k,model:_modelFix[k.model]||k.model}));
 let showAddKey=false;
 let newKeyLabel="";
 let newKeyVal="";
@@ -862,7 +872,16 @@ window._fbOnReady=async function(){
     }
     if(fbSettings){
       if(fbSettings.apiKeys){
-        apiKeys=fbSettings.apiKeys.map(k=>({...k,exhausted:false}));
+        // পুরনো ভুল model string migration
+        const modelFix={
+          'claude-haiku-4-5':'claude-haiku-4-5-20251001',
+          'claude-sonnet-4-5':'claude-sonnet-4-5-20251001',
+          'claude-opus-4-5':'claude-opus-4-5-20251001',
+          'claude-haiku-4-5-20251001':'claude-haiku-4-5-20251001',
+          'claude-sonnet-4-5-20251001':'claude-sonnet-4-5-20251001',
+          'claude-opus-4-5-20251001':'claude-opus-4-5-20251001',
+        };
+        apiKeys=fbSettings.apiKeys.map(k=>({...k,exhausted:false,model:modelFix[k.model]||k.model}));
         lsSet("hk_apikeys",apiKeys);
       }
       if(fbSettings.notePIN){
@@ -1924,10 +1943,7 @@ function renderAssistant(){
     <div style="display:flex;justify-content:center;margin-bottom:12px;color:#6b7280"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg></div>
     <div style="font-size:14px;color:#6b7280;font-weight:600;margin-bottom:6px">Personal Assistant</div>
     <div style="font-size:12px;color:#94887a;line-height:1.8">যেকোনো প্রশ্ন করো!<br>হিসাব, কাজ, নোট — সব বিষয়ে সাহায্য করবো।</div>
-    <div style="margin-top:10px;display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:20px;padding:4px 11px;font-size:10px;color:#16a34a;font-weight:600">
-      <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></span>
-      Built-in Claude AI সক্রিয়
-    </div>
+
   </div>`:"";
   return `<div class="section" style="display:flex;flex-direction:column;height:calc(100vh - 70px)">
     <!-- Chat area -->
@@ -2006,7 +2022,7 @@ function renderApiManager(){
 
       <!-- Provider Select -->
       <div style="font-size:11px;color:#94887a;margin-bottom:5px;font-weight:600">Provider</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px">
         ${[
           ["gemini","🌟 Gemini","#b45309","rgba(234,179,8,.12)"],
           ["openai","🤖 OpenAI","#059669","rgba(16,163,127,.12)"],
@@ -2020,6 +2036,10 @@ function renderApiManager(){
             ${lb}
           </button>`).join("")}
       </div>
+      ${newKeyProvider==="openai"?`<div style="font-size:11px;color:#f59e0b;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.7">⚠️ OpenAI browser থেকে CORS block করে। <b>OpenRouter</b> ব্যবহার করো — একই GPT মডেল পাওয়া যায়, CORS সমস্যা নেই।</div>`:""}
+      ${newKeyProvider==="openrouter"?`<div style="font-size:11px;color:#2563eb;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.7">✅ OpenRouter browser থেকে সরাসরি কাজ করে। openrouter.ai → API Keys থেকে key নাও।</div>`:""}
+      ${newKeyProvider==="gemini"?`<div style="font-size:11px;color:#b45309;background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.2);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.7">✅ Gemini browser থেকে সরাসরি কাজ করে। aistudio.google.com থেকে key নাও।</div>`:""}
+      ${newKeyProvider==="anthropic"?`<div style="font-size:11px;color:#c2410c;background:rgba(214,90,49,.06);border:1px solid rgba(214,90,49,.2);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.7">✅ Claude (Anthropic) browser থেকে কাজ করে। console.anthropic.com থেকে key নাও।</div>`:""}
 
       <!-- Model Select per provider -->
       <div style="font-size:11px;color:#94887a;margin-bottom:5px;font-weight:600">মডেল</div>
@@ -2075,10 +2095,10 @@ function renderApiManager(){
       :newKeyProvider==="anthropic"?`
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
           ${[
-            ["claude-haiku-4-5-20251001","Claude Haiku 4.5","দ্রুত, সাশ্রয়ী"],
-            ["claude-sonnet-4-5-20251001","Claude Sonnet 4.5","ব্যালেন্সড"],
+            ["claude-haiku-4-5","Claude Haiku 4.5","দ্রুত, সাশ্রয়ী"],
+            ["claude-sonnet-4-5","Claude Sonnet 4.5","ব্যালেন্সড"],
             ["claude-sonnet-4-20250514","Claude Sonnet 4","শক্তিশালী"],
-            ["claude-opus-4-5-20251001","Claude Opus 4.5","সর্বোচ্চ"],
+            ["claude-opus-4-5","Claude Opus 4.5","সর্বোচ্চ"],
             ["claude-haiku-3-5-20241022","Claude Haiku 3.5","পুরনো, স্থিতিশীল"],
           ].map(([val,name,desc])=>`
             <button onclick="newKeyModel='${val}';render()"
@@ -2092,7 +2112,7 @@ function renderApiManager(){
               ${newKeyModel===val?`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`:""}
             </button>`).join("")}
           <input class="inp" type="text" placeholder="কাস্টম মডেল (ঐচ্ছিক)"
-            value="${!["claude-haiku-4-5-20251001","claude-sonnet-4-5-20251001","claude-sonnet-4-20250514","claude-opus-4-5-20251001","claude-haiku-3-5-20241022"].includes(newKeyModel)?newKeyModel:""}"
+            value="${!["claude-haiku-4-5","claude-sonnet-4-5","claude-sonnet-4-20250514","claude-opus-4-5","claude-haiku-3-5-20241022"].includes(newKeyModel)?newKeyModel:""}"
             oninput="newKeyModel=this.value;render()"
             style="border-color:rgba(214,90,49,.35);font-size:12px;margin-bottom:0;padding:8px 10px"/>
         </div>`
@@ -2148,18 +2168,6 @@ function renderApiManager(){
     </div>`:"";
 
   return `<div class="section">
-    <!-- Built-in Claude AI Card -->
-    <div style="background:rgba(214,90,49,.06);border:1px solid rgba(214,90,49,.25);border-radius:14px;padding:13px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
-      <div style="width:36px;height:36px;border-radius:10px;background:rgba(214,90,49,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:#c2410c">Built-in Claude AI ✓</div>
-        <div style="font-size:10px;color:#94887a;margin-top:2px">claude-sonnet-4 · কোনো Key ছাড়াই সক্রিয়</div>
-      </div>
-      <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;flex-shrink:0"></div>
-    </div>
-
     <!-- Firebase Status Card -->
     <div style="background:${window._fbReady?"rgba(34,197,94,.06)":"rgba(245,158,11,.06)"};border:1px solid ${window._fbReady?"rgba(34,197,94,.25)":"rgba(245,158,11,.25)"};border-radius:14px;padding:13px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
       <div style="width:36px;height:36px;border-radius:10px;background:${window._fbReady?"rgba(34,197,94,.12)":"rgba(245,158,11,.12)"};display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -2195,7 +2203,7 @@ function renderApiManager(){
         </div>
       </div>
       <div style="font-size:11px;color:#94887a;line-height:1.8;border-top:1px solid rgba(124,58,237,.15);padding-top:10px">
-        Built-in Claude AI সবসময় সক্রিয়। বাড়তি Key যোগ করলে সেটা <span style="color:#7c3aed">প্রথমে</span> ব্যবহার হবে, শেষ হলে Built-in-এ ফিরে আসবে।
+        Key যোগ করলে সেটা <span style="color:#7c3aed">প্রথমে</span> ব্যবহার হবে। একাধিক Key থাকলে একটা শেষ হলে পরেরটায় যাবে।
       </div>
     </div>
 
@@ -2617,8 +2625,10 @@ function addApiKey(){
   const label=newKeyLabel.trim()||"Key "+(apiKeys.length+1);
   const key=newKeyVal.trim();
   if(!key)return;
+  const rawModel=newKeyModel.trim();
+  const model=_modelFix[rawModel]||rawModel;
   const entry={id:Date.now().toString(),label,key,provider:newKeyProvider||"gemini",exhausted:false};
-  if(newKeyModel.trim())entry.model=newKeyModel.trim();
+  if(model)entry.model=model;
   apiKeys=[...apiKeys,entry];
   lsSet("hk_apikeys",apiKeys);
   fbSyncSettings();
@@ -2638,15 +2648,39 @@ function markKeyExhausted(id){
 }
 
 // ── Error helpers ─────────────────────────────────────────
+// quota/billing exhausted → key permanently mark করো
 function isExhaustError(data,status){
-  if(status===429)return true;
   if(!data?.error)return false;
-  const t=(data.error.type||data.error.status||data.error.code||"").toLowerCase();
+  // Gemini: error.status (uppercase), error.code (number), error.message
+  const geminiStatus=(data.error.status||"").toUpperCase();
+  if(geminiStatus==="RESOURCE_EXHAUSTED")return true;
+  // OpenAI/OpenRouter: error.code string
+  const code=(data.error.code||"").toLowerCase();
+  if(["insufficient_quota","billing_hard_limit_reached","usage_limit_exceeded"].includes(code))return true;
+  // type field (OpenAI)
+  const t=(data.error.type||"").toLowerCase();
+  if(["insufficient_quota","usage_limit_exceeded"].includes(t))return true;
+  // message-based fallback (quota/billing শেষ হলে)
   const m=(data.error.message||"").toLowerCase();
-  if(["resource_exhausted","insufficient_quota","rate_limit_exceeded","usage_limit_exceeded"].includes(t))return true;
-  if(["resource_exhausted","quota exceeded","quota_exceeded","daily limit","rate limit exceeded","credit balance","insufficient_quota"].some(s=>m.includes(s)))return true;
-  if(m.includes("billing")&&m.includes("limit"))return true;
-  if(t==="rate_limit_error"&&m.includes("limit"))return true;
+  if(["quota exceeded","quota_exceeded","insufficient_quota","billing_hard_limit","you exceeded your current quota","exceeded your current quota","credit balance is too low","no credits"].some(s=>m.includes(s)))return true;
+  if(m.includes("billing")&&(m.includes("limit")||m.includes("quota")))return true;
+  return false;
+}
+// temporary rate limit → key skip করো কিন্তু exhausted mark করো না
+function isRateLimitError(data,status){
+  if(status===429){
+    if(!data?.error)return true; // 429 কিন্তু error body নেই = rate limit
+    const code=(data.error.code||"").toLowerCase();
+    const t=(data.error.type||"").toLowerCase();
+    const geminiStatus=(data.error.status||"").toUpperCase();
+    // quota শেষ হলে isExhaustError এটা ধরবে, এখানে ধরবে না
+    if(isExhaustError(data,status))return false;
+    // Gemini rate limit codes
+    if(geminiStatus==="RATE_LIMIT_EXCEEDED"||code==="rate_limit_exceeded"||t==="rate_limit_error")return true;
+    // OpenAI/OpenRouter rate limit
+    if(code==="rate_limit_exceeded"||t==="requests"||t==="tokens")return true;
+    return true; // বাকি সব 429 = rate limit ধরো
+  }
   return false;
 }
 function isOverloadedError(data,status){
@@ -2656,6 +2690,9 @@ function isOverloadedError(data,status){
   const m=(data.error.message||"").toLowerCase();
   return t==="server_error"||["overloaded","service unavailable"].some(s=>t.includes(s)||m.includes(s));
 }
+
+// ── Proxy URL (Cloudflare Worker) ────────────────────────
+const PROXY="https://personalassistant.tareqrayhan1.workers.dev";
 
 // ── API call ──────────────────────────────────────────────
 async function tryWithKey(keyObj,messages,systemPrompt){
@@ -2671,14 +2708,14 @@ async function tryWithKey(keyObj,messages,systemPrompt){
     }
     const contents=merged.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
     const model=keyObj.model||"gemini-2.0-flash";
-    const body={contents,generationConfig:{maxOutputTokens:1000}};
+    const body={key:keyObj.key,model,contents,generationConfig:{maxOutputTokens:1000}};
     if(systemPrompt)body.system_instruction={parts:[{text:systemPrompt}]};
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyObj.key}`,
+    const r=await fetch(`${PROXY}/gemini`,
       {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     const raw=await r.json();
     if(r.status===200&&raw.candidates?.[0])
       return {data:{content:[{type:"text",text:raw.candidates[0].content?.parts?.[0]?.text||""}]},status:200};
-    if(raw.error)return {data:{error:{type:raw.error.status||"api_error",message:raw.error.message||"Gemini Error"}},status:r.status};
+    if(raw.error)return {data:{error:{type:raw.error.status||raw.error.code||"api_error",status:raw.error.status||"",code:raw.error.code||"",message:raw.error.message||"Gemini Error"}},status:r.status};
     if(r.status===200){
       const text=raw.promptFeedback?.blockReason?"Safety block: "+raw.promptFeedback.blockReason:"উত্তর পাওয়া যায়নি।";
       return {data:{content:[{type:"text",text}]},status:200};
@@ -2687,22 +2724,21 @@ async function tryWithKey(keyObj,messages,systemPrompt){
   }
 
   if(provider==="openai"||provider==="openrouter"){
-    const baseUrl=provider==="openrouter"?"https://openrouter.ai/api/v1/chat/completions":"https://api.openai.com/v1/chat/completions";
+    const endpoint=provider==="openrouter"?"/openrouter":"/openai";
     const model=keyObj.model||(provider==="openrouter"?"openai/gpt-4o-mini":"gpt-4o-mini");
     const oaiMsgs=systemPrompt?[{role:"system",content:systemPrompt},...messages.map(m=>({role:m.role,content:m.content}))]
                                :messages.map(m=>({role:m.role,content:m.content}));
-    const headers={"Content-Type":"application/json","Authorization":"Bearer "+keyObj.key};
-    if(provider==="openrouter"){headers["HTTP-Referer"]="https://tareqs-assistant.app";headers["X-Title"]="Tareq's Assistant";}
-    const r=await fetch(baseUrl,{method:"POST",headers,body:JSON.stringify({model,messages:oaiMsgs,max_tokens:1000})});
+    const r=await fetch(`${PROXY}${endpoint}`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({key:keyObj.key,model,messages:oaiMsgs,max_tokens:1000})});
     const raw=await r.json();
     if(r.status===200&&raw.choices?.[0])
       return {data:{content:[{type:"text",text:raw.choices[0].message?.content||""}]},status:200};
-    if(raw.error)return {data:{error:{type:raw.error.type||"api_error",message:raw.error.message||"OpenAI Error"}},status:r.status};
-    return {data:{error:{type:"api_error",message:"OpenAI error (HTTP "+r.status+")"}},status:r.status};
+    if(raw.error)return {data:{error:{type:raw.error.type||"api_error",code:raw.error.code||"",message:raw.error.message||"OpenAI Error"}},status:r.status};
+    return {data:{error:{type:"api_error",message:"OpenAI/OpenRouter error (HTTP "+r.status+")"}},status:r.status};
   }
 
   if(provider==="anthropic"){
-    const model=keyObj.model||"claude-haiku-4-5-20251001";
+    const model=_modelFix[keyObj.model]||keyObj.model||"claude-haiku-4-5-20251001";
     const r=await fetch("https://api.anthropic.com/v1/messages",{
       method:"POST",
       headers:{"Content-Type":"application/json","x-api-key":keyObj.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
@@ -2715,29 +2751,6 @@ async function tryWithKey(keyObj,messages,systemPrompt){
   }
 
   return {data:{error:{type:"api_error",message:"অজানা provider: "+provider}},status:400};
-}
-
-// ── Built-in AI (কোনো বাইরের Key লাগবে না) ───────────────
-async function tryBuiltinAI(messages,systemPrompt){
-  try{
-    const r=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",
-        max_tokens:1000,
-        ...(systemPrompt?{system:systemPrompt}:{}),
-        messages:messages.map(m=>({role:m.role,content:m.content}))
-      })
-    });
-    const raw=await r.json();
-    if(r.status===200&&raw.content?.[0])
-      return{data:{content:[{type:"text",text:raw.content[0].text||""}]},status:200};
-    if(raw.error)return{data:{error:{type:raw.error.type||"api_error",message:raw.error.message||"AI Error"}},status:r.status};
-    return{data:{error:{type:"api_error",message:"Built-in AI Error (HTTP "+r.status+")"}},status:r.status};
-  }catch(e){
-    return{data:{error:{type:"network_error",message:e.message}},status:0};
-  }
 }
 
 // ── System Prompt ─────────────────────────────────────────
@@ -2787,7 +2800,9 @@ async function sendChat(){
   if(!msg||chatLoading)return;
 
   chatMsgs=[...chatMsgs,{role:"user",content:msg}];
-  chatInpVal="";chatLoading=true;render();
+  chatInpVal="";chatLoading=true;
+  if(inp){inp.value="";inp.style.height="auto";}
+  render();
 
   let systemPrompt;
   try{systemPrompt=buildSystemPrompt();}
@@ -2844,10 +2859,17 @@ async function sendChat(){
   for(const keyObj of liveKeys){
     try{
       const {data,status}=await tryWithKey(keyObj,history,systemPrompt);
-      if(status===429||isExhaustError(data,status)){
+      // quota/billing exhausted → key permanently বন্ধ করো
+      if(isExhaustError(data,status)){
         markKeyExhausted(keyObj.id);
         const name=keyObj.label||"Key "+(apiKeys.findIndex(k=>k.id===keyObj.id)+1);
-        addSysNotif("api_limit",`${name} লিমিট শেষ — Built-in AI-তে যাচ্ছে`);
+        addSysNotif("api_limit",`${name}: কোটা শেষ, পরের Key-তে যাচ্ছে`);
+        continue;
+      }
+      // temporary rate limit → skip করো, exhausted mark করো না
+      if(isRateLimitError(data,status)){
+        const name=keyObj.label||"Key "+(apiKeys.findIndex(k=>k.id===keyObj.id)+1);
+        addSysNotif("api_limit",`${name}: Rate limit — পরের Key চেষ্টা করছি`);
         continue;
       }
       if(isOverloadedError(data,status))continue;
@@ -2859,30 +2881,21 @@ async function sendChat(){
       processAIResponse(raw);
       replied=true;break;
     }catch(e){
+      const isCors=e.message&&(e.message.includes("Failed to fetch")||e.message.includes("NetworkError")||e.message.includes("CORS")||e.message.includes("Load failed"));
+      const errMsg=isCors
+        ?"CORS বা নেটওয়ার্ক ব্লক — এই provider browser থেকে সরাসরি কাজ করে না"
+        :"নেটওয়ার্ক সমস্যা: "+e.message;
       console.error("sendChat ["+(keyObj.label||keyObj.id)+"]:",e.message);
+      addSysNotif("api_error",(keyObj.label||"Key")+" — "+errMsg);
       continue;
     }
   }
 
-  // ── ২. Built-in AI fallback (সবসময় পাওয়া যাবে) ─────────
   if(!replied){
-    try{
-      const {data,status}=await tryBuiltinAI(history,systemPrompt);
-      if(status===200&&!data.error){
-        const raw=data.content?.[0]?.text||"উত্তর পাওয়া যায়নি।";
-        processAIResponse(raw);
-        replied=true;
-      }else if(data.error){
-        chatMsgs=[...chatMsgs,{role:"assistant",content:"⚠️ "+(data.error.message||"AI সংযোগে সমস্যা")}];
-        replied=true;
-      }
-    }catch(e){
-      console.error("Built-in AI:",e.message);
-    }
-  }
-
-  if(!replied){
-    chatMsgs=[...chatMsgs,{role:"assistant",content:"⚠️ সংযোগ হয়নি — ইন্টারনেট চেক করো।"}];
+    const hasKeys=apiKeys.filter(k=>!k.exhausted).length>0;
+    chatMsgs=[...chatMsgs,{role:"assistant",content:hasKeys
+      ?"⚠️ API সংযোগ ব্যর্থ — বিজ্ঞপ্তি ট্যাবে বিস্তারিত দেখো। Key সঠিক কিনা ও ইন্টারনেট চেক করো।"
+      :"⚠️ কোনো সক্রিয় API Key নেই — API Keys ট্যাবে Key যোগ করো।"}];
   }
 
   chatLoading=false;render();
