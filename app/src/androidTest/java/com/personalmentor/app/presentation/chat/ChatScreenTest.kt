@@ -2,7 +2,6 @@ package com.personalmentor.app.presentation.chat
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -62,7 +61,7 @@ class ChatScreenTest {
 
         rule.onNodeWithText("Report").performClick()
         rule.onNodeWithText("Report this response").assertIsDisplayed()
-        rule.onAllNodes(isSelectable())[1].performClick() // "Wrong or misleading"
+        rule.onNodeWithText("Wrong or misleading").performClick()
         rule.onNodeWithText("Note (optional)").performTextInput("made it up")
         rule.onNodeWithText("Send").performClick()
 
