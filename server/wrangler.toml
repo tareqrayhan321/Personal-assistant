@@ -1,0 +1,21 @@
+name = "personalmentor-proxy"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+UPSTREAM_BASE = "https://api.openai.com"
+ALLOWED_MODELS = "gpt-4o-mini"
+ALLOWED_EMBEDDING_MODELS = "text-embedding-3-small"
+MAX_OUTPUT_TOKENS = "1500"
+
+# Secrets (never commit):
+#   wrangler secret put UPSTREAM_API_KEY      # your provider key
+#   wrangler secret put CLIENT_TOKENS         # comma-separated; rotate by adding a new one, shipping, then removing the old
+#   wrangler secret put REPORT_WEBHOOK_URL    # optional: Slack/Discord/other webhook for user reports (else logged)
+#
+# Optional rate limiting (Cloudflare Workers Rate Limiting binding); the worker uses it when present:
+# [[unsafe.bindings]]
+# name = "RATE_LIMITER"
+# type = "ratelimit"
+# namespace_id = "1001"
+# simple = { limit = 30, period = 60 }
