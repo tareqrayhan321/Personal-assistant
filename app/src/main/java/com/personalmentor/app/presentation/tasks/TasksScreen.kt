@@ -50,6 +50,26 @@ fun TasksScreen(
     // Re-check exact-alarm access whenever the screen is shown (e.g. after returning from Settings).
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onScreenResumed() }
 
+    TasksContent(
+        tasks = tasks,
+        showExactAlarmBanner = showExactAlarmBanner,
+        onBack = onBack,
+        onAllowExactAlarms = { openExactAlarmSettings(context) },
+        onToggle = viewModel::onToggle,
+        onDelete = viewModel::onDelete,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TasksContent(
+    tasks: List<TodoTask>,
+    showExactAlarmBanner: Boolean,
+    onBack: () -> Unit,
+    onAllowExactAlarms: () -> Unit,
+    onToggle: (TodoTask) -> Unit,
+    onDelete: (TodoTask) -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -64,7 +84,7 @@ fun TasksScreen(
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
         if (showExactAlarmBanner) {
-            ExactAlarmBanner(onAllow = { openExactAlarmSettings(context) })
+            ExactAlarmBanner(onAllow = onAllowExactAlarms)
         }
         if (tasks.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -83,8 +103,8 @@ fun TasksScreen(
                 items(tasks, key = { it.id }) { task ->
                     TaskRow(
                         task = task,
-                        onToggle = { viewModel.onToggle(task) },
-                        onDelete = { viewModel.onDelete(task) },
+                        onToggle = { onToggle(task) },
+                        onDelete = { onDelete(task) },
                     )
                 }
             }

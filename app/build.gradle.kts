@@ -130,6 +130,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
 
     // Local storage
+    implementation(libs.pdfbox.android)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

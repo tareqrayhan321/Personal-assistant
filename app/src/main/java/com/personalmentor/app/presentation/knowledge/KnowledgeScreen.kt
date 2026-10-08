@@ -41,7 +41,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.personalmentor.app.domain.model.IndexStatus
 import com.personalmentor.app.domain.model.KnowledgeDocument
 
-private val PICKER_TYPES = arrayOf("text/*", "application/json", "application/octet-stream")
+private val PICKER_TYPES = arrayOf(
+    "text/*",
+    "application/json",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/octet-stream", // some providers label .md files this way; unsupported types are rejected on read
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,10 +56,26 @@ fun KnowledgeScreen(
     viewModel: KnowledgeViewModel = hiltViewModel(),
 ) {
     val documents by viewModel.documents.collectAsStateWithLifecycle()
-    var pendingDelete by remember { mutableStateOf<KnowledgeDocument?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
         viewModel.onFilesPicked(it)
     }
+    KnowledgeContent(
+        documents = documents,
+        onBack = onBack,
+        onAdd = { picker.launch(PICKER_TYPES) },
+        onDelete = viewModel::onDelete,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun KnowledgeContent(
+    documents: List<KnowledgeDocument>,
+    onBack: () -> Unit,
+    onAdd: () -> Unit,
+    onDelete: (Long) -> Unit,
+) {
+    var pendingDelete by remember { mutableStateOf<KnowledgeDocument?>(null) }
 
     Scaffold(
         topBar = {
@@ -65,7 +87,7 @@ fun KnowledgeScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { picker.launch(PICKER_TYPES) }) {
+                    IconButton(onClick = onAdd) {
                         Icon(Icons.Default.Add, contentDescription = "Add files")
                     }
                 },
@@ -75,7 +97,7 @@ fun KnowledgeScreen(
         if (documents.isEmpty()) {
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "No documents yet.\nAdd text or Markdown files for Mentor Mode to draw on.",
+                    text = "No documents yet.\nAdd text, Markdown, PDF or Word files for Mentor Mode to draw on.",
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(32.dp),
@@ -101,7 +123,7 @@ fun KnowledgeScreen(
             text = { Text("\"${doc.name}\" will be removed from the knowledge base.") },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.onDelete(doc.id)
+                    onDelete(doc.id)
                     pendingDelete = null
                 }) { Text("Remove") }
             },

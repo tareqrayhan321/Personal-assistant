@@ -26,3 +26,8 @@
 
 # Room entities / DAOs are accessed through generated code; keep names stable for migrations and debugging
 -keep class com.personalmentor.app.data.local.*Entity { *; }
+
+# PdfBox-Android (PDF text extraction): optional JPEG2000 decoder is not bundled
+-dontwarn com.gemalto.jp2.**
+-dontwarn com.tom_roush.pdfbox.**
+-keep class com.tom_roush.pdfbox.** { *; }

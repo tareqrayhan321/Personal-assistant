@@ -41,6 +41,32 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    SettingsContent(
+        state = state,
+        onBack = onBack,
+        onPreset = viewModel::onPreset,
+        onBaseUrl = viewModel::onBaseUrl,
+        onApiKey = viewModel::onApiKey,
+        onModel = viewModel::onModel,
+        onEmbeddingModel = viewModel::onEmbeddingModel,
+        onSave = viewModel::onSave,
+        onReset = viewModel::onReset,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SettingsContent(
+    state: SettingsUiState,
+    onBack: () -> Unit,
+    onPreset: (ProviderPreset) -> Unit,
+    onBaseUrl: (String) -> Unit,
+    onApiKey: (String) -> Unit,
+    onModel: (String) -> Unit,
+    onEmbeddingModel: (String) -> Unit,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+) {
     val form = state.form
 
     Scaffold(
@@ -67,7 +93,7 @@ fun SettingsScreen(
             Text("Provider", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PROVIDER_PRESETS.forEach { p ->
-                    AssistChip(onClick = { viewModel.onPreset(p) }, label = { Text(p.label) })
+                    AssistChip(onClick = { onPreset(p) }, label = { Text(p.label) })
                 }
             }
             Text(
@@ -78,7 +104,7 @@ fun SettingsScreen(
 
             OutlinedTextField(
                 value = form.baseUrl,
-                onValueChange = viewModel::onBaseUrl,
+                onValueChange = onBaseUrl,
                 label = { Text("Base URL") },
                 isError = !state.baseUrlValid,
                 supportingText = if (state.baseUrlValid) null else ({ Text("Enter a valid http(s) URL") }),
@@ -88,7 +114,7 @@ fun SettingsScreen(
             )
             OutlinedTextField(
                 value = form.apiKey,
-                onValueChange = viewModel::onApiKey,
+                onValueChange = onApiKey,
                 label = { Text("API key") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
@@ -97,7 +123,7 @@ fun SettingsScreen(
             )
             OutlinedTextField(
                 value = form.model,
-                onValueChange = viewModel::onModel,
+                onValueChange = onModel,
                 label = { Text("Chat model") },
                 isError = form.model.isBlank(),
                 singleLine = true,
@@ -105,7 +131,7 @@ fun SettingsScreen(
             )
             OutlinedTextField(
                 value = form.embeddingModel,
-                onValueChange = viewModel::onEmbeddingModel,
+                onValueChange = onEmbeddingModel,
                 label = { Text("Embedding model") },
                 isError = form.embeddingModel.isBlank(),
                 supportingText = { Text("After changing it, re-add your knowledge-base documents.") },
@@ -117,8 +143,8 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = viewModel::onReset) { Text("Reset to defaults") }
-                Button(onClick = viewModel::onSave, enabled = state.canSave) { Text("Save") }
+                TextButton(onClick = onReset) { Text("Reset to defaults") }
+                Button(onClick = onSave, enabled = state.canSave) { Text("Save") }
             }
 
             if (BuildConfig.PRIVACY_POLICY_URL.isNotBlank()) {

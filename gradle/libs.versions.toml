@@ -1,4 +1,5 @@
 [versions]
+pdfbox = "2.0.27.0"
 agp = "8.10.1"
 kotlin = "2.0.21"
 ksp = "2.0.21-1.0.28"
@@ -19,6 +20,7 @@ androidxJunit = "1.2.1"
 espresso = "3.6.1"
 
 [libraries]
+pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfbox" }
 # AndroidX core
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }

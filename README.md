@@ -102,10 +102,10 @@ Gear icon in the chat top bar. Values override `local.properties`; *Reset to def
 
 ## Mentor Mode / RAG
 
-- **Ingestion:** in Mentor Mode, open the list icon in the top bar, then add plain-text files (txt, md, csv, json; up to 2 MB each). Text is split into ~900-character overlapping chunks (paragraph/sentence aware, including the Bengali danda), embedded through the OpenAI-compatible `/v1/embeddings` endpoint (`EMBEDDING_MODEL`, default `text-embedding-3-small`), and stored in Room. Indexing runs in the background and shows progress.
+- **Ingestion:** in Mentor Mode, open the list icon in the top bar, then add text files (txt, md, csv, json; up to 2 MB), PDF files with a text layer, or Word .docx files (up to 20 MB each). Text is split into ~900-character overlapping chunks (paragraph/sentence aware, including the Bengali danda), embedded through the OpenAI-compatible `/v1/embeddings` endpoint (`EMBEDDING_MODEL`, default `text-embedding-3-small`), and stored in Room. Indexing runs in the background and shows progress.
 - **Search:** the question is embedded and compared against all stored vectors (exact cosine similarity, paged scan). The top 5 passages above a minimum score go into the prompt; the model cites them as `[1]`, `[2]`, and the reply ends with a *Sources* list of only the cited passages.
 - **Vector store choice:** on-device Room + brute-force search keeps the app offline-capable for storage and needs no extra backend. It is comfortable up to a few tens of thousands of chunks; beyond that, swap `KnowledgeRepositoryImpl.search` for a server-side store (Qdrant / pgvector) behind the same `KnowledgeRepository` interface.
-- **Limits:** PDF/DOCX are not supported yet. If you change `EMBEDDING_MODEL`, re-add the documents (vectors from another model are skipped during search).
+- **Limits:** scanned/image-only PDFs and password-protected PDFs are rejected with a clear message (no OCR; ML Kit has no Bengali model). DOCX imports body text only (no headers, footers, footnotes or text boxes). PDF text comes from PdfBox-Android: check a sample of your own Bengali PDFs, because conjuncts can come out wrong in PDFs with broken font mappings. If you change `EMBEDDING_MODEL`, re-add the documents (vectors from another model are skipped during search).
 
 ## Reminders
 
@@ -128,7 +128,7 @@ Keys in `BuildConfig` can be extracted from a shipped APK, so `LLM_API_KEY` is *
 - [x] Mentor knowledge-base management (add / remove / index status)
 - [x] Settings screen: provider presets, base URL, API key, chat and embedding model (applied immediately, stored on-device)
 - [x] Unit tests (task tools, SSE parsing, ViewModel, RAG, reminders, proxy) and CI (GitHub Actions: tests, debug build, release shrink check)
-- [x] Compose UI tests for the chat screen (`app/src/androidTest`, run on an emulator in CI); other screens still untested
+- [x] Compose UI tests for the chat, Knowledge, Settings and Tasks screens (`app/src/androidTest`, run on an emulator in CI) via stateless `*Content` composables
 - [x] Release prep: proxy server, no provider key in the APK, adaptive launcher icon, ProGuard rules, in-app reporting of AI responses, privacy-policy link, API 36 (see `docs/RELEASE.md`, `docs/PLAY_STORE.md`)
 - [ ] Play Console steps that only you can do (exact-alarm declaration, data-safety form, privacy policy page)
 - [x] Exact-alarm permission flow (Android 12+/14+) and snooze (notification buttons + `snooze_task` tool)

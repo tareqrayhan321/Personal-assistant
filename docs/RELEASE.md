@@ -2,12 +2,19 @@
 
 ## 1. Deploy the proxy (keeps the provider key off the phone)
 
+One command (needs Node 22 and a free Cloudflare account; `npx wrangler login` once):
+
 ```
 cd server
-npm test
-npx wrangler secret put UPSTREAM_API_KEY     # your OpenAI (or compatible) key
-npx wrangler secret put CLIENT_TOKENS        # e.g. a long random string; comma-separate to rotate
-npx wrangler secret put REPORT_WEBHOOK_URL   # optional: Slack/Discord webhook that receives user reports
+UPSTREAM_API_KEY=sk-... REPORT_WEBHOOK_URL=https://hooks... ./deploy.sh
+```
+
+It runs the tests, generates a client token, stores the secrets, deploys, and prints the two `local.properties` lines. Manual equivalent:
+
+```
+npx wrangler secret put UPSTREAM_API_KEY
+npx wrangler secret put CLIENT_TOKENS        # comma-separate to rotate
+npx wrangler secret put REPORT_WEBHOOK_URL   # optional
 npx wrangler deploy
 ```
 
@@ -19,7 +26,11 @@ binding (see `wrangler.toml`) before launch.
 casual abuse and can be rotated, but it is not strong authentication. If abuse appears, add Play Integrity
 attestation to the proxy and keep per-IP limits and a monthly spend cap at the provider.
 
-## 2. `local.properties` for the release build
+## 2. Publish the privacy policy
+
+Fill the `REPLACE_*` placeholders in `site/privacy/index.html` (date, your name, contact email, AI provider name), push to `main`, and enable *Settings → Pages → Source: GitHub Actions* in the repository. The workflow refuses to publish while any placeholder is left. The URL is `https://<user>.github.io/<repo>/privacy/`; use it for `PRIVACY_POLICY_URL` and in Play Console.
+
+## 3. `local.properties` for the release build
 
 ```
 PROXY_BASE_URL=https://personalmentor-proxy.<you>.workers.dev/
@@ -34,7 +45,7 @@ RELEASE_KEY_PASSWORD=...
 The release build ignores `LLM_API_KEY` / `LLM_BASE_URL` (debug-only) and fails if the proxy values or the
 privacy-policy URL are missing. `-PciBuild=true` skips that check (CI shrink test only).
 
-## 3. Build and test the bundle
+## 4. Build and test the bundle
 
 ```
 gradle :app:bundleRelease        # app/build/outputs/bundle/release/app-release.aab
@@ -52,11 +63,15 @@ because R8 problems show up at runtime, not at build time:
 - [ ] Reboot the phone: pending reminders still fire
 - [ ] Revoke "Alarms & reminders": the Tasks banner appears and reminders still arrive (inexact)
 
-## 4. Versioning
+## 5. Store listing and Play Console
+
+Copy text from `docs/STORE_LISTING.md`; follow `docs/PLAY_STORE.md` for the exact-alarm declaration and the Data safety form.
+
+## 6. Versioning
 
 Bump `versionCode` (must increase on every upload) and `versionName` in `app/build.gradle.kts`.
 
-## 5. Toolchain note
+## 7. Toolchain note
 
 `compileSdk`/`targetSdk` are 36 (Google Play requires API 36 for new apps and updates since 2026-08-31),
 which needs AGP 8.10.x and Gradle 8.11.1 (already set). Do a full Android Studio sync and test on an Android 16
