@@ -23,7 +23,6 @@ class BootReceiver : BroadcastReceiver() {
     @Inject lateinit var rescheduleReminders: RescheduleRemindersUseCase
 
     override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent) // required by Hilt for injection
         val action = intent.action
         if (action != Intent.ACTION_BOOT_COMPLETED &&
             action != AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED

@@ -18,7 +18,6 @@ class ReminderReceiver : BroadcastReceiver() {
     @Inject lateinit var handleReminderFired: HandleReminderFiredUseCase
 
     override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent) // required by Hilt for injection
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1L)
         if (taskId < 0) return
         val isSnooze = intent.getBooleanExtra(EXTRA_SNOOZE, false)

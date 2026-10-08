@@ -21,7 +21,6 @@ class ReminderActionReceiver : BroadcastReceiver() {
     @Inject lateinit var markReminderDone: MarkReminderDoneUseCase
 
     override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent) // required by Hilt for injection
         val taskId = intent.getLongExtra(ReminderReceiver.EXTRA_TASK_ID, -1L)
         if (taskId < 0) return
 

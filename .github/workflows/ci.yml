@@ -21,6 +21,12 @@ jobs:
         run: gradle :app:testDebugUnitTest --no-daemon
       - name: Debug APK
         run: gradle :app:assembleDebug --no-daemon
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PersonalMentor-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
       # Runs R8/ProGuard + resource shrinking; -PciBuild skips the proxy-secrets check (unsigned output).
       - name: Release build (shrink check)
         run: gradle :app:assembleRelease -PciBuild=true --no-daemon

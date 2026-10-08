@@ -132,7 +132,7 @@ class KnowledgeRepositoryImpl @Inject constructor(
     }
 
     override suspend fun recoverInterrupted() {
-        dao.indexingIds().filter { it !in jobs }.forEach { id ->
+        dao.indexingIds().filter { !jobs.containsKey(it) }.forEach { id ->
             dao.deleteChunks(id)
             dao.setStatus(id, IndexStatus.FAILED.name, "Interrupted. Remove it and add the file again.")
         }
