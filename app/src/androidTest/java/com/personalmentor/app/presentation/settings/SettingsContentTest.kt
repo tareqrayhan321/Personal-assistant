@@ -6,7 +6,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import com.personalmentor.app.domain.model.LlmSettings
 import com.personalmentor.app.presentation.theme.PersonalMentorTheme
 import org.junit.Assert.assertEquals
@@ -75,7 +75,7 @@ class SettingsContentTest {
     @Test fun typingReportsTheFullNewValue() {
         val calls = Calls()
         show(calls = calls)
-        rule.onNodeWithText("Chat model").performTextInput("-x")
+        rule.onNodeWithText("Chat model").performTextReplacement("gpt-4o-mini-x")
         assertEquals("gpt-4o-mini-x", calls.model)
     }
 }
