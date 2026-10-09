@@ -9,6 +9,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.personalmentor.app.presentation.MainViewModel
+import com.personalmentor.app.presentation.agent.AgentScreen
+import com.personalmentor.app.presentation.agent.ApprovalDialog
+import com.personalmentor.app.presentation.agent.ApprovalViewModel
 import com.personalmentor.app.presentation.chat.ChatScreen
 import com.personalmentor.app.presentation.knowledge.KnowledgeScreen
 import com.personalmentor.app.presentation.settings.SettingsScreen
@@ -19,10 +22,22 @@ object Routes {
     const val TASKS = "tasks"
     const val KNOWLEDGE = "knowledge"
     const val SETTINGS = "settings"
+    const val AGENT = "agent"
 }
 
 @Composable
 fun AppNavHost(navController: NavHostController = rememberNavController()) {
+    // Asks the user before the agent does something risky; shown on top of whichever screen is open.
+    val approvalViewModel: ApprovalViewModel = hiltViewModel()
+    val pendingApproval by approvalViewModel.pending.collectAsStateWithLifecycle()
+    pendingApproval?.let { request ->
+        ApprovalDialog(
+            request = request,
+            onApprove = { approvalViewModel.resolve(true) },
+            onDecline = { approvalViewModel.resolve(false) },
+        )
+    }
+
     NavHost(navController = navController, startDestination = Routes.CHAT) {
         composable(Routes.CHAT) {
             val viewModel: MainViewModel = hiltViewModel()
@@ -36,6 +51,7 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
                 onOpenTasks = { navController.navigate(Routes.TASKS) },
                 onOpenKnowledge = { navController.navigate(Routes.KNOWLEDGE) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenAgent = { navController.navigate(Routes.AGENT) },
                 onReport = viewModel::onReport,
                 onErrorShown = viewModel::onErrorShown,
             )
@@ -48,6 +64,9 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.AGENT) {
+            AgentScreen(onBack = { navController.popBackStack() })
         }
     }
 }

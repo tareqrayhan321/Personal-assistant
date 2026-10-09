@@ -20,6 +20,9 @@ class FakeAssistantResponder @Inject constructor() : AssistantResponder {
                     "Set LLM_API_KEY in local.properties to enable the task agent."
             AssistantMode.MENTOR ->
                 "Offline demo: no LLM is configured. Set LLM_API_KEY in local.properties to get real answers to \"$lastUserText\"."
+            AssistantMode.AGENT ->
+                "Offline demo: no LLM is configured, so the agent cannot browse or use GitHub for \"$lastUserText\" yet. " +
+                    "Set LLM_API_KEY in local.properties (or in Settings) to enable Agent Mode."
         }
         reply.split(" ").forEach {
             emit("$it ")

@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
@@ -86,6 +87,7 @@ fun ChatScreen(
     onOpenSettings: () -> Unit,
     onReport: (ChatMessage, ReportReason, String) -> Unit,
     onErrorShown: () -> Unit,
+    onOpenAgent: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var reporting by remember { mutableStateOf<ChatMessage?>(null) }
@@ -112,6 +114,7 @@ fun ChatScreen(
                 onOpenTasks = onOpenTasks,
                 onOpenKnowledge = onOpenKnowledge,
                 onOpenSettings = onOpenSettings,
+                onOpenAgent = onOpenAgent,
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -202,6 +205,7 @@ private fun ChatTopBar(
     onOpenTasks: () -> Unit,
     onOpenKnowledge: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenAgent: () -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
@@ -211,6 +215,11 @@ private fun ChatTopBar(
                     if (mode == AssistantMode.MENTOR) {
                         IconButton(onClick = onOpenKnowledge) {
                             Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Knowledge base")
+                        }
+                    }
+                    if (mode == AssistantMode.AGENT) {
+                        IconButton(onClick = onOpenAgent) {
+                            Icon(Icons.Default.Build, contentDescription = "Agent browser and GitHub")
                         }
                     }
                     IconButton(onClick = onOpenTasks) {
@@ -233,7 +242,7 @@ private fun ChatTopBar(
                         selected = item == mode,
                         onClick = { onModeChange(item) },
                         shape = SegmentedButtonDefaults.itemShape(index, modes.size),
-                    ) { Text(item.label) }
+                    ) { Text(item.label, maxLines = 1, style = MaterialTheme.typography.labelMedium) }
                 }
             }
         }
@@ -331,7 +340,13 @@ private fun MessageInputBar(
                 onValueChange = onValueChange,
                 modifier = Modifier.weight(1f),
                 placeholder = {
-                    Text(if (mode == AssistantMode.TASK) "Add a task or set a reminder…" else "Ask your mentor…")
+                    Text(
+                        when (mode) {
+                            AssistantMode.TASK -> "Add a task or set a reminder…"
+                            AssistantMode.MENTOR -> "Ask your mentor…"
+                            AssistantMode.AGENT -> "Tell the agent what to do…"
+                        },
+                    )
                 },
                 shape = RoundedCornerShape(24.dp),
                 maxLines = 5,
@@ -351,6 +366,7 @@ private fun EmptyState(mode: AssistantMode, modifier: Modifier = Modifier) {
             text = when (mode) {
                 AssistantMode.TASK -> "Task Mode\nTell me what you need done or remind you about."
                 AssistantMode.MENTOR -> "Mentor Mode\nAsk me anything from your knowledge base."
+                AssistantMode.AGENT -> "Agent Mode\nI can browse the web and work on GitHub for you.\nOpen the wrench icon to sign in or add a GitHub token."
             },
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
