@@ -4,6 +4,7 @@ import com.personalmentor.app.domain.agent.BrowserTools
 import com.personalmentor.app.domain.agent.GitHubTools
 import com.personalmentor.app.domain.agent.MacroTools
 import com.personalmentor.app.domain.macro.MacroCatalog
+import com.personalmentor.app.domain.model.Connector
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -216,6 +217,12 @@ object AgentToolSpecs {
     )
 
     val all: List<ToolSpec> = TaskToolSpecs.all + browser + github + macros
+
+    /** Task tools plus only enabled connectors; macros stay available only in the interactive agent. */
+    fun forConnectors(connectors: Set<Connector>): List<ToolSpec> =
+        TaskToolSpecs.all +
+            (if (Connector.BROWSER in connectors) browser else emptyList()) +
+            (if (Connector.GITHUB in connectors) github else emptyList())
 
     private fun string(description: String) = type("string", description)
 

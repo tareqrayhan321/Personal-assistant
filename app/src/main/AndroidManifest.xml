@@ -50,6 +50,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- Wakes the app when a scheduled task is due -->
+        <receiver
+            android:name=".data.schedule.ScheduleAlarmReceiver"
+            android:exported="false" />
+
         <!-- "Snooze" / "Done" buttons on reminder notifications -->
         <receiver
             android:name=".data.reminder.ReminderActionReceiver"

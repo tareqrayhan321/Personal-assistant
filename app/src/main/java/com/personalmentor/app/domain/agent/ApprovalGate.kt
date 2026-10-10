@@ -3,6 +3,7 @@ package com.personalmentor.app.domain.agent
 import com.personalmentor.app.domain.model.ApprovalMode
 import com.personalmentor.app.domain.repository.AgentSettingsRepository
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,6 +12,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
 
 /** [SENSITIVE] actions are asked in "sensitive" and "all" modes; [ROUTINE] ones only in "all" mode. */
 enum class ApprovalLevel { ROUTINE, SENSITIVE }
@@ -19,6 +22,18 @@ enum class ApprovalLevel { ROUTINE, SENSITIVE }
 interface ActionApprover {
     /** True when the action may go ahead (the user said yes, or the current mode does not ask). */
     suspend fun confirm(title: String, detail: String, level: ApprovalLevel): Boolean
+}
+
+/**
+ * Put in the coroutine context of an unattended scheduled run. [skipConfirmations] turns every question off;
+ * otherwise sensitive actions are always asked, whatever the global approval mode, and [onWaiting] is called
+ * first so the app can notify the user that a question is waiting.
+ */
+class RunApprovalPolicy(
+    val skipConfirmations: Boolean,
+    val onWaiting: suspend () -> Unit = {},
+) : AbstractCoroutineContextElement(Key) {
+    companion object Key : CoroutineContext.Key<RunApprovalPolicy>
 }
 
 data class ApprovalRequest(val id: Long, val title: String, val detail: String)
@@ -40,12 +55,19 @@ class ApprovalGate @Inject constructor(
     private var nextId = 1L
 
     override suspend fun confirm(title: String, detail: String, level: ApprovalLevel): Boolean {
-        val needed = when (settings.current().approvalMode) {
-            ApprovalMode.NONE -> false
-            ApprovalMode.SENSITIVE -> level == ApprovalLevel.SENSITIVE
-            ApprovalMode.ALL -> true
+        val policy = currentCoroutineContext()[RunApprovalPolicy]
+        val mode = settings.current().approvalMode
+        val needed = when {
+            policy?.skipConfirmations == true -> false
+            policy != null -> level == ApprovalLevel.SENSITIVE || mode == ApprovalMode.ALL
+            else -> when (mode) {
+                ApprovalMode.NONE -> false
+                ApprovalMode.SENSITIVE -> level == ApprovalLevel.SENSITIVE
+                ApprovalMode.ALL -> true
+            }
         }
         if (!needed) return true
+        policy?.onWaiting?.invoke()
         return lock.withLock {
             val deferred = CompletableDeferred<Boolean>()
             answer = deferred

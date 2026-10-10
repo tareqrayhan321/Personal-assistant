@@ -17,6 +17,7 @@ import com.personalmentor.app.presentation.agent.ApprovalViewModel
 import com.personalmentor.app.presentation.macro.MacroEditorScreen
 import com.personalmentor.app.presentation.chat.ChatScreen
 import com.personalmentor.app.presentation.knowledge.KnowledgeScreen
+import com.personalmentor.app.presentation.scheduled.ScheduledTasksScreen
 import com.personalmentor.app.presentation.settings.SettingsScreen
 import com.personalmentor.app.presentation.tasks.TasksScreen
 
@@ -60,6 +61,13 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
                 onOpenAgent = { navController.navigate(Routes.AGENT) },
                 onReport = viewModel::onReport,
                 onErrorShown = viewModel::onErrorShown,
+                taskModeContent = { requested, onConsumed, modifier ->
+                    ScheduledTasksScreen(
+                        newScheduleRequested = requested,
+                        onNewScheduleConsumed = onConsumed,
+                        modifier = modifier,
+                    )
+                },
             )
         }
         composable(Routes.TASKS) {

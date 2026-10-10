@@ -11,14 +11,20 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TaskEntity::class,
         KnowledgeDocumentEntity::class,
         KnowledgeChunkEntity::class,
+        ScheduledTaskEntity::class,
+        TaskRunEntity::class,
+        ProjectEntity::class,
     ],
-    version = 4,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatMessageDao(): ChatMessageDao
     abstract fun taskDao(): TaskDao
     abstract fun knowledgeDao(): KnowledgeDao
+    abstract fun scheduledTaskDao(): ScheduledTaskDao
+    abstract fun taskRunDao(): TaskRunDao
+    abstract fun projectDao(): ProjectDao
 
     companion object {
         const val NAME = "personal_mentor.db"
@@ -34,6 +40,44 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN repeatRule TEXT NOT NULL DEFAULT 'NONE'")
+            }
+        }
+
+        /** v6: projects (shared instructions for scheduled tasks). */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `projects` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`instructions` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        /** v5: scheduled tasks and their run history. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `scheduled_tasks` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, " +
+                        "`prompt` TEXT NOT NULL, `repeatRule` TEXT NOT NULL, `hour` INTEGER NOT NULL, " +
+                        "`minute` INTEGER NOT NULL, `startEpochDay` INTEGER NOT NULL, `endEpochDay` INTEGER, " +
+                        "`skipConfirmations` INTEGER NOT NULL, `runMode` TEXT NOT NULL, " +
+                        "`connectors` TEXT NOT NULL, `agentModel` TEXT, `projectId` INTEGER, " +
+                        "`enabled` INTEGER NOT NULL, `nextRunAt` INTEGER, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `task_runs` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `scheduledTaskId` INTEGER NOT NULL, " +
+                        "`taskTitle` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `finishedAt` INTEGER, " +
+                        "`status` TEXT NOT NULL, `output` TEXT NOT NULL, `error` TEXT, " +
+                        "FOREIGN KEY(`scheduledTaskId`) REFERENCES `scheduled_tasks`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_task_runs_scheduledTaskId` " +
+                        "ON `task_runs` (`scheduledTaskId`)"
+                )
             }
         }
 

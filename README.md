@@ -107,6 +107,15 @@ Gear icon in the chat top bar. Values override `local.properties`; *Reset to def
 - **Vector store choice:** on-device Room + brute-force search keeps the app offline-capable for storage and needs no extra backend. It is comfortable up to a few tens of thousands of chunks; beyond that, swap `KnowledgeRepositoryImpl.search` for a server-side store (Qdrant / pgvector) behind the same `KnowledgeRepository` interface.
 - **Limits:** scanned/image-only PDFs and password-protected PDFs are rejected with a clear message (no OCR; ML Kit has no Bengali model). DOCX imports body text only (no headers, footers, footnotes or text boxes). PDF text comes from PdfBox-Android: check a sample of your own Bengali PDFs, because conjuncts can come out wrong in PDFs with broken font mappings. If you change `EMBEDDING_MODEL`, re-add the documents (vectors from another model are skipped during search).
 
+## Task Mode: scheduled tasks
+
+Task Mode opens on **Runs / Scheduled** tabs. The `+` in the top bar (or *New schedule*) opens the editor: title, repeat (once, daily, weekdays, weekly, monthly), time, optional end date, prompt, *Skip confirmations*, and *Advanced settings*: run options (*Same task* keeps the last 3 results as context, *New task* starts fresh), connectors (GitHub, Browser), agent (model override), and project (shared instructions). The earlier task chat is still there: use the pencil icon in the top bar.
+
+- **Scheduling:** one AlarmManager alarm per task; when it fires the next occurrence is armed first, then the run is handed to WorkManager (expedited, needs network). Alarms are re-armed after a reboot and on app start; missed occurrences are skipped. Without exact-alarm access a run can be a few minutes late.
+- **Runs:** each run is saved in the *Runs* tab (status, duration, output or error; tap for details, Copy, Delete) and ends with a notification. The play button runs a task right away.
+- **Approvals:** with *Skip confirmations* off, sensitive actions (GitHub changes, risky browser clicks) ask for approval even if Agent Mode is set to never ask; there is a 5-minute window, then the action counts as declined. With it on, nothing is asked.
+- **Limits:** the Browser connector uses an off-screen WebView and may not work on every device in the background; GitHub and task tools do. Cloud Computer is not implemented.
+
 ## Reminders
 
 **Repeating:** ask the assistant in Task Mode (e.g. "remind me daily at 8 to take vitamins"). The task's reminder always holds the next occurrence and keeps its local time of day, also across daylight-saving changes. Missed occurrences (device off) are skipped, not replayed. On the notification, *Snooze* delays only that occurrence; *Done* dismisses it. Ticking the task in the Tasks screen ends the series.
@@ -133,6 +142,8 @@ Keys in `BuildConfig` can be extracted from a shipped APK, so `LLM_API_KEY` is *
 - [ ] Play Console steps that only you can do (exact-alarm declaration, data-safety form, privacy policy page)
 - [x] Exact-alarm permission flow (Android 12+/14+) and snooze (notification buttons + `snooze_task` tool)
 - [x] Repeating reminders (daily / weekly)
+- [x] Task Mode scheduled tasks: Runs / Scheduled tabs, editor, alarm + WorkManager runs, run history, projects
+- [ ] Cloud Computer for scheduled tasks
 
 ## License
 

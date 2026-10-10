@@ -28,8 +28,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -54,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -88,7 +92,12 @@ fun ChatScreen(
     onReport: (ChatMessage, ReportReason, String) -> Unit,
     onErrorShown: () -> Unit,
     onOpenAgent: () -> Unit = {},
+    /** Task Mode body (Runs / Scheduled). When null, Task Mode stays the plain chat. */
+    taskModeContent: (@Composable (newScheduleRequested: Boolean, onConsumed: () -> Unit, modifier: Modifier) -> Unit)? = null,
 ) {
+    var showTaskChat by rememberSaveable { mutableStateOf(false) }
+    var newScheduleRequested by remember { mutableStateOf(false) }
+    val showScheduled = uiState.mode == AssistantMode.TASK && taskModeContent != null && !showTaskChat
     val snackbarHostState = remember { SnackbarHostState() }
     var reporting by remember { mutableStateOf<ChatMessage?>(null) }
     val listState = rememberLazyListState()
@@ -115,20 +124,27 @@ fun ChatScreen(
                 onOpenKnowledge = onOpenKnowledge,
                 onOpenSettings = onOpenSettings,
                 onOpenAgent = onOpenAgent,
+                taskModeSwitch = if (uiState.mode == AssistantMode.TASK && taskModeContent != null) {
+                    TaskModeSwitch(showScheduled = showScheduled, onNew = { newScheduleRequested = true }, onToggle = { showTaskChat = !showTaskChat })
+                } else null,
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            MessageInputBar(
-                value = uiState.input,
-                mode = uiState.mode,
-                canSend = uiState.canSend,
-                onValueChange = onInputChange,
-                onSend = onSend,
-            )
+            if (!showScheduled) {
+                MessageInputBar(
+                    value = uiState.input,
+                    mode = uiState.mode,
+                    canSend = uiState.canSend,
+                    onValueChange = onInputChange,
+                    onSend = onSend,
+                )
+            }
         },
     ) { padding ->
-        if (uiState.messages.isEmpty()) {
+        if (showScheduled) {
+            taskModeContent?.invoke(newScheduleRequested, { newScheduleRequested = false }, Modifier.padding(padding).fillMaxSize())
+        } else if (uiState.messages.isEmpty()) {
             EmptyState(uiState.mode, Modifier.padding(padding).fillMaxSize())
         } else {
             LazyColumn(
@@ -196,6 +212,9 @@ private fun ReportDialog(onDismiss: () -> Unit, onSend: (ReportReason, String) -
     )
 }
 
+/** Task Mode extras in the top bar: the + button, and the toggle between the scheduled screen and the old task chat. */
+private class TaskModeSwitch(val showScheduled: Boolean, val onNew: () -> Unit, val onToggle: () -> Unit)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatTopBar(
@@ -206,6 +225,7 @@ private fun ChatTopBar(
     onOpenKnowledge: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAgent: () -> Unit,
+    taskModeSwitch: TaskModeSwitch? = null,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
@@ -222,11 +242,27 @@ private fun ChatTopBar(
                             Icon(Icons.Default.Build, contentDescription = "Agent browser and GitHub")
                         }
                     }
+                    if (taskModeSwitch != null) {
+                        if (taskModeSwitch.showScheduled) {
+                            IconButton(onClick = taskModeSwitch.onNew) {
+                                Icon(Icons.Default.Add, contentDescription = "New scheduled task")
+                            }
+                        }
+                        IconButton(onClick = taskModeSwitch.onToggle) {
+                            if (taskModeSwitch.showScheduled) {
+                                Icon(Icons.Default.Create, contentDescription = "Task chat")
+                            } else {
+                                Icon(Icons.Default.DateRange, contentDescription = "Scheduled tasks")
+                            }
+                        }
+                    }
                     IconButton(onClick = onOpenTasks) {
                         Icon(Icons.Default.CheckCircle, contentDescription = "Open tasks")
                     }
-                    IconButton(onClick = onClearChat) {
-                        Icon(Icons.Default.Delete, contentDescription = "Clear conversation")
+                    if (taskModeSwitch?.showScheduled != true) {
+                        IconButton(onClick = onClearChat) {
+                            Icon(Icons.Default.Delete, contentDescription = "Clear conversation")
+                        }
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
