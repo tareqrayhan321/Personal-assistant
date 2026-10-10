@@ -29,11 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -94,10 +91,13 @@ fun ChatScreen(
     onOpenAgent: () -> Unit = {},
     /** Task Mode body (Runs / Scheduled). When null, Task Mode stays the plain chat. */
     taskModeContent: (@Composable (newScheduleRequested: Boolean, onConsumed: () -> Unit, modifier: Modifier) -> Unit)? = null,
+    /** Agent Mode body (the Macros screen). When null, Agent Mode stays the plain chat. */
+    agentModeContent: (@Composable (modifier: Modifier) -> Unit)? = null,
 ) {
     var showTaskChat by rememberSaveable { mutableStateOf(false) }
     var newScheduleRequested by remember { mutableStateOf(false) }
     val showScheduled = uiState.mode == AssistantMode.TASK && taskModeContent != null && !showTaskChat
+    val showAgent = uiState.mode == AssistantMode.AGENT && agentModeContent != null
     val snackbarHostState = remember { SnackbarHostState() }
     var reporting by remember { mutableStateOf<ChatMessage?>(null) }
     val listState = rememberLazyListState()
@@ -131,7 +131,7 @@ fun ChatScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            if (!showScheduled) {
+            if (!showScheduled && !showAgent) {
                 MessageInputBar(
                     value = uiState.input,
                     mode = uiState.mode,
@@ -142,7 +142,9 @@ fun ChatScreen(
             }
         },
     ) { padding ->
-        if (showScheduled) {
+        if (showAgent) {
+            agentModeContent?.invoke(Modifier.padding(padding).fillMaxSize())
+        } else if (showScheduled) {
             taskModeContent?.invoke(newScheduleRequested, { newScheduleRequested = false }, Modifier.padding(padding).fillMaxSize())
         } else if (uiState.messages.isEmpty()) {
             EmptyState(uiState.mode, Modifier.padding(padding).fillMaxSize())
@@ -237,11 +239,6 @@ private fun ChatTopBar(
                             Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Knowledge base")
                         }
                     }
-                    if (mode == AssistantMode.AGENT) {
-                        IconButton(onClick = onOpenAgent) {
-                            Icon(Icons.Default.Build, contentDescription = "Agent browser and GitHub")
-                        }
-                    }
                     if (taskModeSwitch != null) {
                         if (taskModeSwitch.showScheduled) {
                             IconButton(onClick = taskModeSwitch.onNew) {
@@ -254,14 +251,6 @@ private fun ChatTopBar(
                             } else {
                                 Icon(Icons.Default.DateRange, contentDescription = "Scheduled tasks")
                             }
-                        }
-                    }
-                    IconButton(onClick = onOpenTasks) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = "Open tasks")
-                    }
-                    if (taskModeSwitch?.showScheduled != true) {
-                        IconButton(onClick = onClearChat) {
-                            Icon(Icons.Default.Delete, contentDescription = "Clear conversation")
                         }
                     }
                     IconButton(onClick = onOpenSettings) {

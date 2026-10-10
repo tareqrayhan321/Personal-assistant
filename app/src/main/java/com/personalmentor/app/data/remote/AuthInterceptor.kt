@@ -16,14 +16,21 @@ class AuthInterceptor(private val settings: SettingsRepository) : Interceptor {
         val base = s.baseUrl.trim().toHttpUrlOrNull()
             ?: throw IOException("Invalid base URL in Settings")
         val original = chain.request()
+        val basePath = base.encodedPath.trimEnd('/')
+        // Gemini's OpenAI-compatible base already ends in /v1beta/openai, so its paths have no /v1 prefix.
+        val path = if (basePath.endsWith("/openai")) original.url.encodedPath.removePrefix("/v1") else original.url.encodedPath
         val url = original.url.newBuilder()
             .scheme(base.scheme)
             .host(base.host)
             .port(base.port)
-            .encodedPath(base.encodedPath.trimEnd('/') + original.url.encodedPath)
+            .encodedPath(basePath + path)
             .build()
         val request = original.newBuilder().url(url).apply {
             if (s.apiKey.isNotBlank()) header("Authorization", "Bearer ${s.apiKey}")
+            if (base.host == "api.anthropic.com") {
+                if (s.apiKey.isNotBlank()) header("x-api-key", s.apiKey)
+                header("anthropic-version", "2023-06-01")
+            }
         }.build()
         return chain.proceed(request)
     }

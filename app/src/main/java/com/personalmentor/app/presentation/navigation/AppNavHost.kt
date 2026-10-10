@@ -61,6 +61,14 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
                 onOpenAgent = { navController.navigate(Routes.AGENT) },
                 onReport = viewModel::onReport,
                 onErrorShown = viewModel::onErrorShown,
+                agentModeContent = { modifier ->
+                    AgentScreen(
+                        onBack = {},
+                        onOpenMacro = { id -> navController.navigate(Routes.macro(id)) },
+                        modifier = modifier,
+                        embedded = true,
+                    )
+                },
                 taskModeContent = { requested, onConsumed, modifier ->
                     ScheduledTasksScreen(
                         newScheduleRequested = requested,
