@@ -79,10 +79,13 @@ fun MacrosTopBar(
     onQuery: (String) -> Unit,
     onCollapseAll: (Boolean) -> Unit,
     onShowLog: () -> Unit,
+    showBack: Boolean = true,
+    windowInsets: androidx.compose.foundation.layout.WindowInsets = TopAppBarDefaults.windowInsets,
 ) {
     var filterMenu by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
     TopAppBar(
+        windowInsets = windowInsets,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MacroColors.Navy,
             titleContentColor = Color.White,
@@ -90,7 +93,9 @@ fun MacrosTopBar(
             actionIconContentColor = Color.White,
         ),
         navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+            if (showBack) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+            }
         },
         title = {
             if (state.searching) {

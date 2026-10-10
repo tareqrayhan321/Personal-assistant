@@ -72,10 +72,29 @@ class SettingsContentTest {
         assertEquals(1, calls.resets)
     }
 
-    @Test fun typingReportsTheFullNewValue() {
+    @Test fun customEndpointStillAllowsTypingAModelName() {
         val calls = Calls()
-        show(calls = calls)
-        rule.onNodeWithText("Chat model").performTextReplacement("gpt-4o-mini-x")
-        assertEquals("gpt-4o-mini-x", calls.model)
+        show(form = saved.copy(baseUrl = "http://10.0.2.2:11434/", model = "llama3.1"), calls = calls)
+        rule.onNodeWithText("Chat model").performTextReplacement("llama3.2")
+        assertEquals("llama3.2", calls.model)
+    }
+
+    @Test fun knownProviderPicksAModelFromTheList() {
+        val calls = Calls()
+        rule.setContent {
+            PersonalMentorTheme(dynamicColor = false) {
+                SettingsContent(
+                    state = SettingsUiState(
+                        form = saved, saved = saved,
+                        models = ModelListState(items = listOf("gpt-4o-mini", "gpt-4o")),
+                    ),
+                    onBack = {}, onPreset = {}, onBaseUrl = {}, onApiKey = {},
+                    onModel = { calls.model = it }, onEmbeddingModel = {}, onSave = {}, onReset = {},
+                )
+            }
+        }
+        rule.onNodeWithText("Chat model").performClick()
+        rule.onNodeWithText("gpt-4o").performClick()
+        assertEquals("gpt-4o", calls.model)
     }
 }

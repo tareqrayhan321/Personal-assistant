@@ -48,6 +48,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -77,6 +78,9 @@ import com.personalmentor.app.domain.model.ApprovalMode
 fun AgentScreen(
     onBack: () -> Unit,
     onOpenMacro: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    /** True when shown inside the main screen's Agent Mode: no back arrow, the main header supplies the status-bar space. */
+    embedded: Boolean = false,
     viewModel: AgentViewModel = hiltViewModel(),
     macrosViewModel: MacrosViewModel = hiltViewModel(),
 ) {
@@ -86,7 +90,10 @@ fun AgentScreen(
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showLog by remember { mutableStateOf(false) }
 
+    val noInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
     Scaffold(
+        modifier = modifier,
+        contentWindowInsets = if (embedded) noInsets else ScaffoldDefaults.contentWindowInsets,
         topBar = {
             if (tab == 0) {
                 MacrosTopBar(
@@ -97,9 +104,12 @@ fun AgentScreen(
                     onQuery = macrosViewModel::setQuery,
                     onCollapseAll = macrosViewModel::collapseAll,
                     onShowLog = { showLog = true },
+                    showBack = !embedded,
+                    windowInsets = if (embedded) noInsets else TopAppBarDefaults.windowInsets,
                 )
             } else {
                 TopAppBar(
+                    windowInsets = if (embedded) noInsets else TopAppBarDefaults.windowInsets,
                     title = { Text(TAB_TITLES[tab], fontWeight = FontWeight.Bold) },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MacroColors.Navy,
@@ -107,7 +117,9 @@ fun AgentScreen(
                         navigationIconContentColor = Color.White,
                     ),
                     navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        if (!embedded) {
+                            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        }
                     },
                 )
             }
