@@ -194,7 +194,7 @@ fun MacrosTab(
             if (groups.isEmpty()) {
                 item {
                     Text(
-                        if (state.macros.isEmpty()) "No macros yet. Tap + to create one, or pick a template." else "No macros match this filter.",
+                        if (state.macros.isEmpty()) "No macros yet. Tap + to create one." else "No macros match this filter.",
                         modifier = Modifier.fillMaxWidth().padding(32.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
