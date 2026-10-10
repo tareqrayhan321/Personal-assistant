@@ -189,8 +189,11 @@ object MacroCatalog {
             }
             val error = when (p.kind) {
                 ParamKind.TEXT -> null
-                ParamKind.NUMBER -> value.toIntOrNull()?.takeIf { it in p.min..p.max }
-                    ?.let { null } ?: "${p.label} must be a number from ${p.min} to ${if (p.max == Int.MAX_VALUE) "any" else p.max.toString()}"
+                ParamKind.NUMBER -> {
+                    val number = value.toIntOrNull()
+                    if (number != null && number in p.min..p.max) null
+                    else "${p.label} must be a number from ${p.min} to ${if (p.max == Int.MAX_VALUE) "any" else p.max.toString()}"
+                }
                 ParamKind.CHOICE -> if (value in p.options) null else "${p.label} must be one of: ${p.options.joinToString()}"
                 ParamKind.TIME -> if (parseTime(value) != null) null else "${p.label} must look like 08:30"
                 ParamKind.FILE_NAME -> if (FILE_NAME.matches(value) && !value.contains("..")) null else "${p.label} may only use letters, digits, . _ -"
