@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.personalmentor.app.data.local.AppDatabase
 import com.personalmentor.app.data.local.ChatMessageDao
+import com.personalmentor.app.data.local.CloudComputerDao
 import com.personalmentor.app.data.local.KnowledgeDao
 import com.personalmentor.app.data.local.ProjectDao
 import com.personalmentor.app.data.local.ScheduledTaskDao
@@ -24,7 +25,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6, AppDatabase.MIGRATION_6_7)
             .build()
 
     @Provides
@@ -44,4 +45,7 @@ object DatabaseModule {
 
     @Provides
     fun provideProjectDao(db: AppDatabase): ProjectDao = db.projectDao()
+
+    @Provides
+    fun provideCloudComputerDao(db: AppDatabase): CloudComputerDao = db.cloudComputerDao()
 }

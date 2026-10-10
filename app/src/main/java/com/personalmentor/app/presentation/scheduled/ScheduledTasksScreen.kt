@@ -65,9 +65,11 @@ fun ScheduledTasksScreen(
     val schedules by viewModel.schedules.collectAsStateWithLifecycle()
     val runs by viewModel.runs.collectAsStateWithLifecycle()
     val projects by viewModel.projects.collectAsStateWithLifecycle()
+    val computers by viewModel.computers.collectAsStateWithLifecycle()
     ScheduledTasksContent(
         schedules = schedules,
         projects = projects,
+        cloud = CloudComputerUi(computers, viewModel::onSaveComputer, viewModel::onDeleteComputer, viewModel::onTestComputer),
         onSaveProject = viewModel::onSaveProject,
         onDeleteProject = viewModel::onDeleteProject,
         runs = runs,
@@ -87,6 +89,7 @@ fun ScheduledTasksScreen(
 internal fun ScheduledTasksContent(
     schedules: List<ScheduledTask>,
     projects: List<Project>,
+    cloud: CloudComputerUi,
     onSaveProject: (Project, (Long) -> Unit) -> Unit,
     onDeleteProject: (Project) -> Unit,
     runs: List<TaskRun>,
@@ -167,6 +170,7 @@ internal fun ScheduledTasksContent(
             initial = initial,
             defaultModel = defaultModel,
             projects = projects,
+            cloud = cloud,
             onSaveProject = onSaveProject,
             onDeleteProject = onDeleteProject,
             onDismiss = { editor = null },

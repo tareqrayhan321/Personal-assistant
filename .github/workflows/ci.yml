@@ -46,6 +46,9 @@ jobs:
       - name: Proxy tests
         working-directory: server
         run: npm test
+      - name: Cloud computer tests
+        working-directory: cloud-computer
+        run: npm test
 
   ui-tests:
     runs-on: ubuntu-latest

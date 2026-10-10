@@ -114,7 +114,8 @@ Task Mode opens on **Runs / Scheduled** tabs. The `+` in the top bar (or *New sc
 - **Scheduling:** one AlarmManager alarm per task; when it fires the next occurrence is armed first, then the run is handed to WorkManager (expedited, needs network). Alarms are re-armed after a reboot and on app start; missed occurrences are skipped. Without exact-alarm access a run can be a few minutes late.
 - **Runs:** each run is saved in the *Runs* tab (status, duration, output or error; tap for details, Copy, Delete) and ends with a notification. The play button runs a task right away.
 - **Approvals:** with *Skip confirmations* off, sensitive actions (GitHub changes, risky browser clicks) ask for approval even if Agent Mode is set to never ask; there is a 5-minute window, then the action counts as declined. With it on, nothing is asked.
-- **Limits:** the Browser connector uses an off-screen WebView and may not work on every device in the background; GitHub and task tools do. Cloud Computer is not implemented.
+- **Cloud Computer:** Advanced settings lets a schedule select a self-hosted server and adds guarded shell and workspace file tools. Follow [cloud-computer/README.md](cloud-computer/README.md); use a disposable VM/container, a long random token, and HTTPS. Commands and file writes require approval unless *Skip confirmations* is enabled.
+- **Limits:** the Browser connector uses an off-screen WebView and may not work on every device in the background; GitHub, task tools and an explicitly selected Cloud Computer are available.
 
 ## Reminders
 
@@ -143,7 +144,7 @@ Keys in `BuildConfig` can be extracted from a shipped APK, so `LLM_API_KEY` is *
 - [x] Exact-alarm permission flow (Android 12+/14+) and snooze (notification buttons + `snooze_task` tool)
 - [x] Repeating reminders (daily / weekly)
 - [x] Task Mode scheduled tasks: Runs / Scheduled tabs, editor, alarm + WorkManager runs, run history, projects
-- [ ] Cloud Computer for scheduled tasks
+- [x] Cloud Computer for scheduled tasks: approval-gated shell/workspace tools with a self-hosted server (see [setup and security](cloud-computer/README.md))
 
 ## License
 

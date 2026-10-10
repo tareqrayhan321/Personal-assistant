@@ -3,6 +3,10 @@ package com.personalmentor.app.presentation.scheduled
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.personalmentor.app.domain.model.Project
+import com.personalmentor.app.domain.model.CloudComputer
+import com.personalmentor.app.domain.computer.ComputerApi
+import com.personalmentor.app.domain.computer.ComputerException
+import com.personalmentor.app.domain.repository.CloudComputerRepository
 import com.personalmentor.app.domain.model.ScheduledTask
 import com.personalmentor.app.domain.model.TaskRun
 import com.personalmentor.app.domain.repository.ProjectRepository
@@ -22,6 +26,8 @@ class ScheduledTasksViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val settings: SettingsRepository,
     private val trigger: ScheduleTrigger,
+    private val computerRepository: CloudComputerRepository,
+    private val computerApi: ComputerApi,
 ) : ViewModel() {
 
     init {
@@ -41,6 +47,9 @@ class ScheduledTasksViewModel @Inject constructor(
     val projects: StateFlow<List<Project>> = projectRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val computers: StateFlow<List<CloudComputer>> = computerRepository.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val defaultModel: String get() = settings.current().model
 
     fun onSave(task: ScheduledTask) {
@@ -57,6 +66,26 @@ class ScheduledTasksViewModel @Inject constructor(
 
     fun onDeleteProject(project: Project) {
         viewModelScope.launch { projectRepository.delete(project.id) }
+    }
+
+    fun onSaveComputer(computer: CloudComputer, onSaved: (Long) -> Unit) {
+        viewModelScope.launch { onSaved(computerRepository.save(computer)) }
+    }
+
+    fun onDeleteComputer(computer: CloudComputer) {
+        viewModelScope.launch { computerRepository.delete(computer.id) }
+    }
+
+    fun onTestComputer(computer: CloudComputer, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            val message = try {
+                val health = computerApi.call(computer, "health")
+                "Connected" + (health["name"]?.toString()?.trim('"')?.takeIf { it.isNotBlank() }?.let { " to $it" } ?: "")
+            } catch (e: ComputerException) {
+                e.message ?: "Could not connect."
+            }
+            onResult(message)
+        }
     }
 
     fun onRunNow(task: ScheduledTask) = trigger.runNow(task.id)

@@ -1,0 +1,12 @@
+{
+  "name": "personal-mentor-cloud-computer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiny HTTP server that lets the Personal Mentor app run commands and read/write files in a workspace on a machine you own.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

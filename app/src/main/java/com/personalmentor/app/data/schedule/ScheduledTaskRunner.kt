@@ -5,6 +5,7 @@ import com.personalmentor.app.data.repository.LlmAssistantResponder
 import com.personalmentor.app.domain.agent.RunApprovalPolicy
 import com.personalmentor.app.domain.model.RunMode
 import com.personalmentor.app.domain.model.RunStatus
+import com.personalmentor.app.domain.repository.CloudComputerRepository
 import com.personalmentor.app.domain.repository.ProjectRepository
 import com.personalmentor.app.domain.repository.ScheduledTaskRepository
 import com.personalmentor.app.domain.repository.SettingsRepository
@@ -21,6 +22,7 @@ class ScheduledTaskRunner @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: ScheduledTaskRepository,
     private val projects: ProjectRepository,
+    private val computers: CloudComputerRepository,
     private val llm: LlmAssistantResponder,
     private val settings: SettingsRepository,
 ) {
@@ -38,11 +40,14 @@ class ScheduledTaskRunner @Inject constructor(
                 emptyList()
             }
             val instructions = task.projectId?.let { projects.get(it) }?.instructions
+            val computer = task.cloudComputerId?.let { id ->
+                computers.get(id) ?: error("The cloud computer selected for this task no longer exists.")
+            }
             val policy = RunApprovalPolicy(task.skipConfirmations) {
                 ScheduleNotifier.showApprovalNeeded(context, task.id, task.title)
             }
             output = withContext(policy) {
-                llm.runScheduled(task.prompt, earlier, task.connectors, task.agentModel, instructions)
+                llm.runScheduled(task.prompt, earlier, task.connectors, task.agentModel, instructions, computer)
             }.take(MAX_OUTPUT_CHARS)
             status = RunStatus.SUCCESS
         } catch (e: CancellationException) {

@@ -14,8 +14,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ScheduledTaskEntity::class,
         TaskRunEntity::class,
         ProjectEntity::class,
+        CloudComputerEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -25,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scheduledTaskDao(): ScheduledTaskDao
     abstract fun taskRunDao(): TaskRunDao
     abstract fun projectDao(): ProjectDao
+    abstract fun cloudComputerDao(): CloudComputerDao
 
     companion object {
         const val NAME = "personal_mentor.db"
@@ -51,6 +53,18 @@ abstract class AppDatabase : RoomDatabase() {
                         "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
                         "`instructions` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
                 )
+            }
+        }
+
+        /** v7: cloud computer connections and optional scheduled-task association. */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `cloud_computers` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`url` TEXT NOT NULL, `token` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)"
+                )
+                db.execSQL("ALTER TABLE `scheduled_tasks` ADD COLUMN `cloudComputerId` INTEGER")
             }
         }
 

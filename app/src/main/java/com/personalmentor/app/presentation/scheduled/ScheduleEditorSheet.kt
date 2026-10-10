@@ -66,13 +66,14 @@ import com.personalmentor.app.domain.model.ScheduleRepeat
 import com.personalmentor.app.domain.model.ScheduledTask
 import java.time.LocalDate
 
-private enum class EditorDialog { TIME, START, END, CONNECTORS, AGENT, PROJECT }
+private enum class EditorDialog { TIME, START, END, CONNECTORS, AGENT, PROJECT, CLOUD }
 
 @Composable
 internal fun ScheduleEditorSheet(
     initial: ScheduledTask,
     defaultModel: String,
     projects: List<Project>,
+    cloud: CloudComputerUi,
     onSaveProject: (Project, (Long) -> Unit) -> Unit,
     onDeleteProject: (Project) -> Unit,
     onDismiss: () -> Unit,
@@ -92,6 +93,7 @@ internal fun ScheduleEditorSheet(
     var connectors by remember { mutableStateOf(initial.connectors) }
     var agentModel by remember { mutableStateOf(initial.agentModel) }
     var projectId by remember { mutableStateOf(initial.projectId) }
+    var cloudId by remember { mutableStateOf(initial.cloudComputerId) }
     var dialog by remember { mutableStateOf<EditorDialog?>(null) }
 
     val usesStartDate = repeat != ScheduleRepeat.DAILY && repeat != ScheduleRepeat.WEEKDAYS
@@ -168,6 +170,8 @@ internal fun ScheduleEditorSheet(
                     SettingRow("Agent", agentModel ?: defaultModel) { dialog = EditorDialog.AGENT }
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                     SettingRow("Project", projects.firstOrNull { it.id == projectId }?.name ?: "None") { dialog = EditorDialog.PROJECT }
+                    HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                    SettingRow("Cloud Computer", cloud.computers.firstOrNull { it.id == cloudId }?.name ?: "None") { dialog = EditorDialog.CLOUD }
                 }
                 Box(Modifier.padding(bottom = 8.dp))
             }
@@ -187,6 +191,7 @@ internal fun ScheduleEditorSheet(
                             connectors = connectors,
                             agentModel = agentModel?.trim()?.takeIf { it.isNotEmpty() },
                             projectId = projectId?.takeIf { id -> projects.any { it.id == id } },
+                            cloudComputerId = cloudId?.takeIf { id -> cloud.computers.any { it.id == id } },
                         ),
                     )
                 },
@@ -222,6 +227,12 @@ internal fun ScheduleEditorSheet(
             onSelect = { projectId = it; dialog = null },
             onSave = onSaveProject,
             onDelete = onDeleteProject,
+            onDismiss = { dialog = null },
+        )
+        EditorDialog.CLOUD -> CloudComputerDialog(
+            cloud = cloud,
+            selectedId = cloudId,
+            onSelect = { cloudId = it; dialog = null },
             onDismiss = { dialog = null },
         )
         null -> Unit
@@ -300,7 +311,7 @@ private fun ProjectDialog(
 }
 
 @Composable
-private fun ProjectChoiceRow(label: String, selected: Boolean, onClick: () -> Unit, onEdit: (() -> Unit)?) {
+internal fun ProjectChoiceRow(label: String, selected: Boolean, onClick: () -> Unit, onEdit: (() -> Unit)?) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
         RadioButton(selected = selected, onClick = null, modifier = Modifier.padding(end = 12.dp, top = 12.dp, bottom = 12.dp))
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))

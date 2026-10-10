@@ -20,6 +20,7 @@ data class ScheduledTaskEntity(
     val connectors: String,
     val agentModel: String?,
     val projectId: Long?,
+    val cloudComputerId: Long?,
     val enabled: Boolean,
     val nextRunAt: Long?,
     val createdAt: Long,
@@ -53,5 +54,14 @@ data class ProjectEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val instructions: String,
+    val createdAt: Long,
+)
+
+@Entity(tableName = "cloud_computers")
+data class CloudComputerEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val url: String,
+    val token: String,
     val createdAt: Long,
 )

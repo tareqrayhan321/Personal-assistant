@@ -3,6 +3,7 @@ package com.personalmentor.app.data.remote
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.personalmentor.app.domain.model.Connector
 
 class AgentToolSpecsTest {
     private val names = AgentToolSpecs.all.map { it.function.name }
@@ -25,5 +26,14 @@ class AgentToolSpecsTest {
                 .map { (it as kotlinx.serialization.json.JsonPrimitive).content }
             assertTrue("${spec.function.name} requires an undefined parameter", properties.containsAll(required))
         }
+    }
+
+    @Test fun scheduledComputerToolsAreOnlyAddedWhenComputerIsSelected() {
+        val withoutComputer = AgentToolSpecs.forConnectors(emptySet()).map { it.function.name }
+        val withComputer = AgentToolSpecs.forConnectors(emptySet(), cloudComputer = true).map { it.function.name }
+        val computerTools = setOf("computer_exec", "computer_read_file", "computer_write_file", "computer_list_files")
+        assertTrue(withoutComputer.none { it in computerTools })
+        assertTrue(withComputer.containsAll(computerTools))
+        assertTrue(AgentToolSpecs.forConnectors(setOf(Connector.GITHUB)).map { it.function.name }.contains("github_read_file"))
     }
 }

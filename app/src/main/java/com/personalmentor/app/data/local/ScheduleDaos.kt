@@ -29,6 +29,9 @@ interface ScheduledTaskDao {
     @Query("UPDATE scheduled_tasks SET projectId = NULL WHERE projectId = :projectId")
     suspend fun clearProject(projectId: Long)
 
+    @Query("UPDATE scheduled_tasks SET cloudComputerId = NULL WHERE cloudComputerId = :computerId")
+    suspend fun clearCloudComputer(computerId: Long)
+
     @Query("DELETE FROM scheduled_tasks WHERE id = :id")
     suspend fun delete(id: Long)
 }
@@ -72,5 +75,23 @@ interface ProjectDao {
     suspend fun update(project: ProjectEntity)
 
     @Query("DELETE FROM projects WHERE id = :id")
+    suspend fun delete(id: Long)
+}
+
+@Dao
+interface CloudComputerDao {
+    @Query("SELECT * FROM cloud_computers ORDER BY name COLLATE NOCASE ASC")
+    fun observeAll(): Flow<List<CloudComputerEntity>>
+
+    @Query("SELECT * FROM cloud_computers WHERE id = :id")
+    suspend fun getById(id: Long): CloudComputerEntity?
+
+    @Insert
+    suspend fun insert(computer: CloudComputerEntity): Long
+
+    @Update
+    suspend fun update(computer: CloudComputerEntity)
+
+    @Query("DELETE FROM cloud_computers WHERE id = :id")
     suspend fun delete(id: Long)
 }

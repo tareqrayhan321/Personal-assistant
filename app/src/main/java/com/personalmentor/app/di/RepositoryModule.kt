@@ -1,7 +1,9 @@
 package com.personalmentor.app.di
 
 import com.personalmentor.app.data.reminder.AlarmReminderScheduler
+import com.personalmentor.app.data.computer.OkHttpComputerApi
 import com.personalmentor.app.data.repository.ChatRepositoryImpl
+import com.personalmentor.app.data.repository.CloudComputerRepositoryImpl
 import com.personalmentor.app.data.schedule.AlarmScheduleTrigger
 import com.personalmentor.app.data.repository.KnowledgeRepositoryImpl
 import com.personalmentor.app.data.repository.ProjectRepositoryImpl
@@ -10,8 +12,10 @@ import com.personalmentor.app.data.repository.ScheduledTaskRepositoryImpl
 import com.personalmentor.app.data.repository.TaskRepositoryImpl
 import com.personalmentor.app.data.settings.SettingsRepositoryImpl
 import com.personalmentor.app.domain.reminder.ReminderScheduler
+import com.personalmentor.app.domain.computer.ComputerApi
 import com.personalmentor.app.domain.schedule.ScheduleTrigger
 import com.personalmentor.app.domain.repository.ChatRepository
+import com.personalmentor.app.domain.repository.CloudComputerRepository
 import com.personalmentor.app.domain.repository.KnowledgeRepository
 import com.personalmentor.app.domain.repository.ProjectRepository
 import com.personalmentor.app.domain.repository.ReportRepository
@@ -54,4 +58,10 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindScheduleTrigger(impl: AlarmScheduleTrigger): ScheduleTrigger
+
+    @Binds @Singleton
+    abstract fun bindCloudComputerRepository(impl: CloudComputerRepositoryImpl): CloudComputerRepository
+
+    @Binds @Singleton
+    abstract fun bindComputerApi(impl: OkHttpComputerApi): ComputerApi
 }

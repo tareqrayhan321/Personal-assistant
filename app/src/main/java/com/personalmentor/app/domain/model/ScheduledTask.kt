@@ -56,6 +56,7 @@ data class ScheduledTask(
     /** Model for this task; null = the model from Settings. */
     val agentModel: String? = null,
     val projectId: Long? = null,
+    val cloudComputerId: Long? = null,
     val enabled: Boolean = true,
     val nextRunAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),

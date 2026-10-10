@@ -1,6 +1,7 @@
 package com.personalmentor.app.data.remote
 
 import com.personalmentor.app.domain.agent.BrowserTools
+import com.personalmentor.app.domain.agent.ComputerTools
 import com.personalmentor.app.domain.agent.GitHubTools
 import com.personalmentor.app.domain.agent.MacroTools
 import com.personalmentor.app.domain.macro.MacroCatalog
@@ -216,13 +217,29 @@ object AgentToolSpecs {
         ),
     )
 
+    private val computer: List<ToolSpec> = listOf(
+        spec(
+            ComputerTools.EXEC,
+            "Run a shell command (bash) on the user's cloud computer, inside its workspace directory. Every call is a fresh " +
+                "shell: cd and exported variables do not carry over, so chain steps with &&. No interactive input. " +
+                "The user may be asked to approve.",
+            required = listOf("command"),
+            "command" to string("The bash command line"),
+            "timeout_sec" to type("integer", "Seconds before the command is killed (default 120, at most 600)"),
+        ),
+        spec(ComputerTools.READ_FILE, "Read a text file from the cloud computer's workspace (the first 200 KB).", listOf("path"), "path" to string("Path relative to the workspace")),
+        spec(ComputerTools.WRITE_FILE, "Create or overwrite a text file in the cloud computer's workspace. The user may be asked to approve.", listOf("path", "content"), "path" to string("Path relative to the workspace"), "content" to string("Complete new content of the file")),
+        spec(ComputerTools.LIST_FILES, "List a directory of the cloud computer's workspace.", emptyList(), "path" to string("Directory relative to the workspace (default: the workspace itself)")),
+    )
+
     val all: List<ToolSpec> = TaskToolSpecs.all + browser + github + macros
 
     /** Task tools plus only enabled connectors; macros stay available only in the interactive agent. */
-    fun forConnectors(connectors: Set<Connector>): List<ToolSpec> =
+    fun forConnectors(connectors: Set<Connector>, cloudComputer: Boolean = false): List<ToolSpec> =
         TaskToolSpecs.all +
             (if (Connector.BROWSER in connectors) browser else emptyList()) +
-            (if (Connector.GITHUB in connectors) github else emptyList())
+            (if (Connector.GITHUB in connectors) github else emptyList()) +
+            (if (cloudComputer) computer else emptyList())
 
     private fun string(description: String) = type("string", description)
 

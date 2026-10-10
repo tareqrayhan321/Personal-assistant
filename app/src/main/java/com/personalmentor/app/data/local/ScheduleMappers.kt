@@ -1,6 +1,7 @@
 package com.personalmentor.app.data.local
 
 import com.personalmentor.app.domain.model.Connector
+import com.personalmentor.app.domain.model.CloudComputer
 import com.personalmentor.app.domain.model.Project
 import com.personalmentor.app.domain.model.RunMode
 import com.personalmentor.app.domain.model.RunStatus
@@ -13,6 +14,7 @@ fun ScheduledTaskEntity.toDomain() = ScheduledTask(
     hour = hour, minute = minute, startEpochDay = startEpochDay, endEpochDay = endEpochDay,
     skipConfirmations = skipConfirmations, runMode = RunMode.fromName(runMode),
     connectors = Connector.parseSet(connectors), agentModel = agentModel, projectId = projectId,
+    cloudComputerId = cloudComputerId,
     enabled = enabled, nextRunAt = nextRunAt, createdAt = createdAt,
 )
 
@@ -21,6 +23,7 @@ fun ScheduledTask.toEntity() = ScheduledTaskEntity(
     hour = hour, minute = minute, startEpochDay = startEpochDay, endEpochDay = endEpochDay,
     skipConfirmations = skipConfirmations, runMode = runMode.name,
     connectors = Connector.encode(connectors), agentModel = agentModel, projectId = projectId,
+    cloudComputerId = cloudComputerId,
     enabled = enabled, nextRunAt = nextRunAt, createdAt = createdAt,
 )
 
@@ -37,3 +40,7 @@ fun TaskRun.toEntity() = TaskRunEntity(
 fun ProjectEntity.toDomain() = Project(id = id, name = name, instructions = instructions, createdAt = createdAt)
 
 fun Project.toEntity() = ProjectEntity(id = id, name = name, instructions = instructions, createdAt = createdAt)
+
+fun CloudComputerEntity.toDomain() = CloudComputer(id = id, name = name, url = url, token = token, createdAt = createdAt)
+
+fun CloudComputer.toEntity() = CloudComputerEntity(id = id, name = name, url = url, token = token, createdAt = createdAt)
