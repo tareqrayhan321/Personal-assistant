@@ -48,7 +48,7 @@ object ScheduleWork {
         val request = OneTimeWorkRequestBuilder<ScheduledRunWorker>()
             .setInputData(workDataOf(ScheduledRunWorker.KEY_TASK_ID to taskId))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_QUEUE)
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork("scheduled-run-$taskId", ExistingWorkPolicy.KEEP, request)
     }

@@ -12,6 +12,7 @@ import com.personalmentor.app.data.remote.ToolCall
 import com.personalmentor.app.data.remote.ToolSpec
 import com.personalmentor.app.domain.agent.AgentToolExecutor
 import com.personalmentor.app.domain.agent.TaskToolExecutor
+import com.personalmentor.app.domain.agent.toolFail
 import com.personalmentor.app.domain.assistant.AssistantResponder
 import com.personalmentor.app.domain.model.Connector
 import com.personalmentor.app.domain.model.AssistantMode
