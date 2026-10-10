@@ -5,6 +5,22 @@ import android.webkit.WebView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import com.personalmentor.app.presentation.macro.ActivityLogDialog
+import com.personalmentor.app.presentation.macro.MacroColors
+import com.personalmentor.app.presentation.macro.MacrosTab
+import com.personalmentor.app.presentation.macro.MacrosTopBar
+import com.personalmentor.app.presentation.macro.MacrosViewModel
+import com.personalmentor.app.presentation.macro.TemplatesTab
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,8 +48,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -62,31 +76,71 @@ import com.personalmentor.app.domain.model.ApprovalMode
 @Composable
 fun AgentScreen(
     onBack: () -> Unit,
+    onOpenMacro: (Long) -> Unit,
     viewModel: AgentViewModel = hiltViewModel(),
+    macrosViewModel: MacrosViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val browser by viewModel.browserState.collectAsStateWithLifecycle()
+    val macros by macrosViewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var showLog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Agent") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
+            if (tab == 0) {
+                MacrosTopBar(
+                    state = macros,
+                    onBack = onBack,
+                    onFilter = macrosViewModel::setFilter,
+                    onToggleSearch = macrosViewModel::toggleSearch,
+                    onQuery = macrosViewModel::setQuery,
+                    onCollapseAll = macrosViewModel::collapseAll,
+                    onShowLog = { showLog = true },
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(TAB_TITLES[tab], fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MacroColors.Navy,
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White,
+                    ),
+                    navigationIcon = {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    },
+                )
+            }
+        },
+        bottomBar = {
+            NavigationBar {
+                val icons = listOf(Icons.AutoMirrored.Filled.List, Icons.Default.Layers, Icons.Default.Public, Icons.Default.Settings)
+                TAB_TITLES.forEachIndexed { index, title ->
+                    NavigationBarItem(
+                        selected = tab == index,
+                        onClick = { tab = index },
+                        icon = { Icon(icons[index], contentDescription = null) },
+                        label = { Text(if (index == 3) "Settings" else title) },
+                    )
+                }
+            }
         },
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            TabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Browser") })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("GitHub & Safety") })
-            }
-            if (tab == 0) {
-                BrowserTab(
+        Box(Modifier.padding(padding).fillMaxSize()) {
+            when (tab) {
+                0 -> MacrosTab(
+                    state = macros,
+                    onOpen = onOpenMacro,
+                    onNew = { onOpenMacro(0L) },
+                    onFilter = macrosViewModel::setFilter,
+                    onToggleCollapsed = macrosViewModel::toggleCollapsed,
+                    onCollapseAll = macrosViewModel::collapseAll,
+                    onEnabled = macrosViewModel::setEnabled,
+                    onCategoryEnabled = macrosViewModel::setCategoryEnabled,
+                    onFavorite = macrosViewModel::toggleFavorite,
+                )
+                1 -> TemplatesTab(onAdd = { template -> onOpenMacro(macrosViewModel.addTemplate(template)) })
+                2 -> BrowserTab(
                     state = browser,
                     onGo = viewModel::go,
                     onBack = viewModel::goBack,
@@ -96,8 +150,7 @@ fun AgentScreen(
                     attach = viewModel::attachBrowser,
                     detach = viewModel::detachBrowser,
                 )
-            } else {
-                GitHubSafetyContent(
+                else -> GitHubSafetyContent(
                     state = state,
                     onToken = viewModel::onToken,
                     onSaveToken = viewModel::onSaveToken,
@@ -107,7 +160,11 @@ fun AgentScreen(
             }
         }
     }
+
+    if (showLog) ActivityLogDialog(log = macros.log, onDismiss = { showLog = false })
 }
+
+private val TAB_TITLES = listOf("Macros", "Templates", "Browser", "GitHub & Safety")
 
 /** The same WebView the agent drives: watch it work, sign in to sites yourself, or take over. */
 @Composable

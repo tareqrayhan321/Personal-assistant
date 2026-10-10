@@ -14,15 +14,20 @@ class AgentToolExecutor @Inject constructor(
     private val tasks: TaskToolExecutor,
     private val browser: BrowserToolExecutor,
     private val github: GitHubToolExecutor,
+    private val macros: MacroToolExecutor,
     private val json: Json,
 ) {
     suspend fun execute(name: String, argumentsJson: String): String {
-        if (!name.startsWith("browser_") && !name.startsWith("github_")) {
+        if (!name.startsWith("browser_") && !name.startsWith("github_") && !name.startsWith("macro_")) {
             return tasks.execute(name, argumentsJson)
         }
         return try {
             val args = parse(argumentsJson)
-            if (name.startsWith("browser_")) browser.execute(name, args) else github.execute(name, args)
+            when {
+                name.startsWith("browser_") -> browser.execute(name, args)
+                name.startsWith("macro_") -> macros.execute(name, args)
+                else -> github.execute(name, args)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -42,7 +47,7 @@ class AgentToolExecutor @Inject constructor(
         if (argumentsJson.isBlank()) JsonObject(emptyMap()) else json.parseToJsonElement(argumentsJson).jsonObject
 
     private companion object {
-        val HINT_KEYS = listOf("url", "query", "repo", "title", "path", "direction")
+        val HINT_KEYS = listOf("url", "query", "repo", "title", "path", "direction", "name")
         const val HINT_LENGTH = 60
     }
 }

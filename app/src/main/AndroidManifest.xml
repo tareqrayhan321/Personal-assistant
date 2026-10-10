@@ -10,6 +10,11 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Agent Mode macros: background listener for triggers, vibrate action -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:name=".PersonalMentorApp"
         android:allowBackup="false"
@@ -49,6 +54,24 @@
         <receiver
             android:name=".data.reminder.ReminderActionReceiver"
             android:exported="false" />
+
+        <!-- Listens for phone events (power, screen, Wi-Fi, app installs, clock) for the user's macros -->
+        <service
+            android:name=".data.macro.MacroService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-defined automations that react to device events" />
+        </service>
+
+        <receiver
+            android:name=".data.macro.MacroBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

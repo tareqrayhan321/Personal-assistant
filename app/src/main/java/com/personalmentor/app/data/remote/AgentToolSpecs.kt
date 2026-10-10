@@ -2,6 +2,8 @@ package com.personalmentor.app.data.remote
 
 import com.personalmentor.app.domain.agent.BrowserTools
 import com.personalmentor.app.domain.agent.GitHubTools
+import com.personalmentor.app.domain.agent.MacroTools
+import com.personalmentor.app.domain.macro.MacroCatalog
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -165,7 +167,55 @@ object AgentToolSpecs {
         ),
     )
 
-    val all: List<ToolSpec> = TaskToolSpecs.all + browser + github
+    private val itemList: JsonObject = buildJsonObject {
+        put("type", "array")
+        put(
+            "items",
+            buildJsonObject {
+                put("type", "object")
+                put(
+                    "properties",
+                    buildJsonObject {
+                        put("type", string("Type id from the catalog"))
+                        put("params", type("object", "Parameter values by key, as strings"))
+                    },
+                )
+                put("required", JsonArray(listOf(JsonPrimitive("type"))))
+            },
+        )
+    }
+
+    private val macros: List<ToolSpec> = listOf(
+        spec(MacroTools.LIST, "List the user's macros (automations) with their triggers, actions and constraints.", required = emptyList()),
+        spec(
+            MacroTools.CREATE,
+            "Create a macro: when a trigger fires and all constraints hold, the actions run in order. " +
+                "Use trigger type manual for a macro that only runs on request. The user is asked to approve. " +
+                "Catalog (type(param=options)):\n" + MacroCatalog.describeForAgent() +
+                "\nIn texts, {battery}, {time}, {date}, {trigger}, {http_response}, {http_code} and local variables can be used.",
+            required = listOf("name", "triggers", "actions"),
+            "name" to string("Unique macro name"),
+            "triggers" to itemList,
+            "actions" to itemList,
+            "constraints" to itemList,
+            "category" to string("Optional category folder name"),
+        ),
+        spec(
+            MacroTools.RUN, "Run a macro now by name (its constraints still apply). The user is asked to approve.",
+            required = listOf("name"), "name" to string("Macro name"),
+        ),
+        spec(
+            MacroTools.SET_ENABLED, "Switch a macro on or off. The user is asked to approve.",
+            required = listOf("name", "enabled"),
+            "name" to string("Macro name"), "enabled" to type("boolean", "true to enable, false to disable"),
+        ),
+        spec(
+            MacroTools.DELETE, "Delete a macro. The user is asked to approve.",
+            required = listOf("name"), "name" to string("Macro name"),
+        ),
+    )
+
+    val all: List<ToolSpec> = TaskToolSpecs.all + browser + github + macros
 
     private fun string(description: String) = type("string", description)
 

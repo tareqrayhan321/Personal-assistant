@@ -5,13 +5,16 @@ import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import androidx.navigation.navArgument
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.personalmentor.app.presentation.MainViewModel
 import com.personalmentor.app.presentation.agent.AgentScreen
 import com.personalmentor.app.presentation.agent.ApprovalDialog
 import com.personalmentor.app.presentation.agent.ApprovalViewModel
+import com.personalmentor.app.presentation.macro.MacroEditorScreen
 import com.personalmentor.app.presentation.chat.ChatScreen
 import com.personalmentor.app.presentation.knowledge.KnowledgeScreen
 import com.personalmentor.app.presentation.settings.SettingsScreen
@@ -23,6 +26,9 @@ object Routes {
     const val KNOWLEDGE = "knowledge"
     const val SETTINGS = "settings"
     const val AGENT = "agent"
+    const val MACRO = "agent/macro/{id}"
+
+    fun macro(id: Long) = "agent/macro/$id"
 }
 
 @Composable
@@ -66,7 +72,16 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
             SettingsScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.AGENT) {
-            AgentScreen(onBack = { navController.popBackStack() })
+            AgentScreen(
+                onBack = { navController.popBackStack() },
+                onOpenMacro = { id -> navController.navigate(Routes.macro(id)) },
+            )
+        }
+        composable(
+            route = Routes.MACRO,
+            arguments = listOf(navArgument("id") { type = NavType.LongType; defaultValue = 0L }),
+        ) {
+            MacroEditorScreen(onClose = { navController.popBackStack() })
         }
     }
 }

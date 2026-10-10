@@ -196,6 +196,9 @@ class LlmAssistantResponder @Inject constructor(
                 - GitHub: repo is "owner/name". Read a file before changing it and send its COMPLETE new content.
                   Prefer a new branch plus a pull request over committing to the default branch, unless the user asks
                   for a direct commit. For bulk or destructive changes, state the plan in words first.
+                - Macros (automations): macro_create builds a macro (triggers + optional constraints + actions) that runs on its
+                  own later; macro_run, macro_set_enabled, macro_delete and macro_list manage them. Use exact type ids and
+                  parameters from the macro_create description. Create only what the user asked for.
                 - Tasks and reminders: use the task tools; give times as local ISO yyyy-MM-ddTHH:mm.
                   If a result contains a "warning", pass it on briefly.
                 - Current local time: $now ($zone). If a needed detail is missing, ask one short question.
