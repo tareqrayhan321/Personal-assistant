@@ -7,10 +7,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.graphics.Color
@@ -20,7 +20,6 @@ import com.personalmentor.app.presentation.macro.MacroColors
 import com.personalmentor.app.presentation.macro.MacrosTab
 import com.personalmentor.app.presentation.macro.MacrosTopBar
 import com.personalmentor.app.presentation.macro.MacrosViewModel
-import com.personalmentor.app.presentation.macro.TemplatesTab
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,6 +47,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -77,19 +77,27 @@ import com.personalmentor.app.domain.model.ApprovalMode
 fun AgentScreen(
     onBack: () -> Unit,
     onOpenMacro: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    /** True when shown inside the main screen's Agent Mode: no back arrow, the main header supplies the status-bar space. */
+    embedded: Boolean = false,
     viewModel: AgentViewModel = hiltViewModel(),
     macrosViewModel: MacrosViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val browser by viewModel.browserState.collectAsStateWithLifecycle()
     val macros by macrosViewModel.state.collectAsStateWithLifecycle()
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tabIndex by rememberSaveable { mutableIntStateOf(0) }
+    val tab = tabIndex.coerceIn(0, TAB_TITLES.lastIndex)
     var showLog by remember { mutableStateOf(false) }
 
+    val noInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
     Scaffold(
+        modifier = modifier,
+        contentWindowInsets = if (embedded) noInsets else ScaffoldDefaults.contentWindowInsets,
         topBar = {
             if (tab == 0) {
-                MacrosTopBar(
+                // Inside Agent Mode the Macros list has no header of its own; the standalone screen keeps it.
+                if (!embedded) MacrosTopBar(
                     state = macros,
                     onBack = onBack,
                     onFilter = macrosViewModel::setFilter,
@@ -97,9 +105,12 @@ fun AgentScreen(
                     onQuery = macrosViewModel::setQuery,
                     onCollapseAll = macrosViewModel::collapseAll,
                     onShowLog = { showLog = true },
+                    showBack = !embedded,
+                    windowInsets = if (embedded) noInsets else TopAppBarDefaults.windowInsets,
                 )
             } else {
                 TopAppBar(
+                    windowInsets = if (embedded) noInsets else TopAppBarDefaults.windowInsets,
                     title = { Text(TAB_TITLES[tab], fontWeight = FontWeight.Bold) },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MacroColors.Navy,
@@ -107,20 +118,23 @@ fun AgentScreen(
                         navigationIconContentColor = Color.White,
                     ),
                     navigationIcon = {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        if (!embedded) {
+                            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        }
                     },
                 )
             }
         },
         bottomBar = {
-            NavigationBar {
-                val icons = listOf(Icons.AutoMirrored.Filled.List, Icons.Default.Layers, Icons.Default.Public, Icons.Default.Settings)
+            // The main screen already keeps clear of the system bar, so don't add that space a second time.
+            NavigationBar(windowInsets = if (embedded) noInsets else NavigationBarDefaults.windowInsets) {
+                val icons = listOf(Icons.AutoMirrored.Filled.List, Icons.Default.Public, Icons.Default.Settings)
                 TAB_TITLES.forEachIndexed { index, title ->
                     NavigationBarItem(
                         selected = tab == index,
-                        onClick = { tab = index },
+                        onClick = { tabIndex = index },
                         icon = { Icon(icons[index], contentDescription = null) },
-                        label = { Text(if (index == 3) "Settings" else title) },
+                        label = { Text(if (index == 2) "Settings" else title) },
                     )
                 }
             }
@@ -139,8 +153,7 @@ fun AgentScreen(
                     onCategoryEnabled = macrosViewModel::setCategoryEnabled,
                     onFavorite = macrosViewModel::toggleFavorite,
                 )
-                1 -> TemplatesTab(onAdd = { template -> onOpenMacro(macrosViewModel.addTemplate(template)) })
-                2 -> BrowserTab(
+                1 -> BrowserTab(
                     state = browser,
                     onGo = viewModel::go,
                     onBack = viewModel::goBack,
@@ -164,7 +177,7 @@ fun AgentScreen(
     if (showLog) ActivityLogDialog(log = macros.log, onDismiss = { showLog = false })
 }
 
-private val TAB_TITLES = listOf("Macros", "Templates", "Browser", "GitHub & Safety")
+private val TAB_TITLES = listOf("Macros", "Browser", "GitHub & Safety")
 
 /** The same WebView the agent drives: watch it work, sign in to sites yourself, or take over. */
 @Composable
