@@ -1,0 +1,31 @@
+name = "personalmentor-cloud-agent"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+# Switches. Set to "false" and redeploy to turn a part off.
+[vars]
+CLOUD_ENABLED = "true"       # job API + cron
+TELEGRAM_ENABLED = "false"   # Telegram webhook (Phase 3 adds the commands)
+
+[[d1_databases]]
+binding = "DB"
+database_name = "personalmentor-cloud"
+database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+migrations_dir = "migrations"
+
+# Free plan allows 5 cron triggers per account. This one only recovers jobs whose lease expired.
+[triggers]
+crons = ["*/15 * * * *"]
+
+# Secrets (never commit; `npx wrangler secret put NAME`):
+#   OWNER_TOKEN              >= 32 random chars; the app sends it as a Bearer token
+#   TELEGRAM_WEBHOOK_SECRET  >= 16 chars, A-Z a-z 0-9 _ -
+#   OWNER_TELEGRAM_ID        your numeric Telegram user id
+#   TELEGRAM_BOT_TOKEN       Phase 3
+#
+# Optional rate limiting binding (used when present):
+# [[unsafe.bindings]]
+# name = "RATE_LIMITER"
+# type = "ratelimit"
+# namespace_id = "2001"
+# simple = { limit = 30, period = 60 }

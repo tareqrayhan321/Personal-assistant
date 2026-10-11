@@ -49,6 +49,9 @@ jobs:
       - name: Cloud computer tests
         working-directory: cloud-computer
         run: npm test
+      - name: Cloud agent tests
+        working-directory: cloud-agent
+        run: npm test
 
   ui-tests:
     runs-on: ubuntu-latest
