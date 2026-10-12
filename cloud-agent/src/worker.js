@@ -9,7 +9,8 @@
 //   POST /telegram/webhook      Telegram updates (owner-only commands: /new /jobs /failed /job /cancel)
 
 import * as jobs from './jobs.js';
-import { runCommand, replyTo, notifyFinished } from './telegram.js';
+import { runCommand, replyTo, notifyFinished, parseCommand } from './telegram.js';
+import { runPending } from './executor.js';
 
 const HEADERS = { 'content-type': 'application/json', 'cache-control': 'no-store' };
 const MAX_BODY = 16 * 1024;
@@ -18,6 +19,12 @@ const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const KEY_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const MIN_OWNER_TOKEN = 32;
 const MIN_WEBHOOK_SECRET = 16;
+
+/** After a job is created, try to run it right away (in the background of this request). The cron is the safety net. */
+function kick(env, deps) {
+  if (typeof deps.waitUntil !== 'function') return;
+  deps.waitUntil(runPending(env, Date.now(), { max: 1 }).catch((e) => console.error('run failed', e?.name ?? 'Error')));
+}
 
 const json = (status, body, extra = {}) => new Response(JSON.stringify(body), { status, headers: { ...HEADERS, ...extra } });
 const fail = (status, code, message, extra) => json(status, { error: { code, message } }, extra);
@@ -59,7 +66,7 @@ async function readJson(request, max) {
   }
 }
 
-async function jobsRoute(request, env, url, now) {
+async function jobsRoute(request, env, url, now, deps) {
   const parts = url.pathname.split('/').filter(Boolean); // ['v1','jobs',id?,'cancel'?]
   const id = parts[2];
   const action = parts[3];
@@ -77,6 +84,7 @@ async function jobsRoute(request, env, url, now) {
     // The source is always decided here; nothing about identity or approvals is read from the client.
     const out = await jobs.createJob(env.DB, { ...input, key, source: 'app' }, now);
     if (out.conflict) return fail(409, 'idempotency_conflict', 'Idempotency-Key was already used with different content');
+    if (out.created) kick(env, deps);
     return json(out.created ? 201 : 200, { job: jobs.publicJob(out.job), duplicate: !out.created });
   }
 
@@ -108,7 +116,7 @@ async function jobsRoute(request, env, url, now) {
   return fail(405, 'method_not_allowed', 'Method not allowed');
 }
 
-async function telegramRoute(request, env, now) {
+async function telegramRoute(request, env, now, deps) {
   if (request.method !== 'POST') return fail(405, 'method_not_allowed', 'Method not allowed', { allow: 'POST' });
   if (!flag(env.TELEGRAM_ENABLED, false)) return fail(503, 'telegram_disabled', 'Telegram integration is disabled');
   const secret = env.TELEGRAM_WEBHOOK_SECRET;
@@ -135,6 +143,7 @@ async function telegramRoute(request, env, now) {
   let reply;
   try {
     reply = await runCommand(env, update, now);
+    if (parseCommand(msg.text)?.name === 'new') kick(env, deps); // only a new job can need running
   } catch (e) {
     await jobs.deleteEvent(env.DB, 'telegram', eventId).catch(() => {}); // let Telegram's retry run it again
     throw e;
@@ -142,12 +151,12 @@ async function telegramRoute(request, env, now) {
   return json(200, replyTo(msg.chat.id, reply)); // answered inside the webhook response
 }
 
-export async function handle(request, env, now = Date.now()) {
+export async function handle(request, env, now = Date.now(), deps = {}) {
   const url = new URL(request.url);
   if (url.pathname === '/health') {
     return request.method === 'GET' ? json(200, { ok: true }) : fail(405, 'method_not_allowed', 'Method not allowed', { allow: 'GET' });
   }
-  if (url.pathname === '/telegram/webhook') return telegramRoute(request, env, now);
+  if (url.pathname === '/telegram/webhook') return telegramRoute(request, env, now, deps);
   if (url.pathname !== '/v1/jobs' && !url.pathname.startsWith('/v1/jobs/')) return fail(404, 'not_found', 'Not found');
 
   if (!flag(env.CLOUD_ENABLED, true)) return fail(503, 'cloud_disabled', 'Cloud agent is disabled');
@@ -163,7 +172,7 @@ export async function handle(request, env, now = Date.now()) {
   const given = bearer(request);
   if (!given || !(await safeEqual(given, ownerToken))) return fail(401, 'unauthorized', 'Unauthorized');
 
-  return jobsRoute(request, env, url, now);
+  return jobsRoute(request, env, url, now, deps);
 }
 
 function isQuotaError(e) {
@@ -171,9 +180,9 @@ function isQuotaError(e) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     try {
-      return await handle(request, env);
+      return await handle(request, env, Date.now(), { waitUntil: ctx?.waitUntil?.bind(ctx) });
     } catch (e) {
       console.error('unhandled', e?.name ?? 'Error'); // name only: messages may contain request data
       if (isQuotaError(e)) return fail(503, 'quota_exceeded', 'Free-tier quota reached; try again after 00:00 UTC', { 'retry-after': '3600' });
@@ -185,6 +194,11 @@ export default {
     if (!flag(env.CLOUD_ENABLED, true)) return;
     const now = Date.now();
     const safe = (p) => p.catch((e) => console.error('cron failed', e?.name ?? 'Error'));
-    ctx.waitUntil(Promise.all([safe(jobs.requeueExpired(env.DB, now)), safe(notifyFinished(env, now))]));
+    ctx.waitUntil(
+      Promise.all([
+        safe(jobs.requeueExpired(env.DB, now).then(() => runPending(env, now))),
+        safe(notifyFinished(env, now)),
+      ]),
+    );
   },
 };

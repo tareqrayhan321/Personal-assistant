@@ -149,3 +149,6 @@ Keys in `BuildConfig` can be extracted from a shipped APK, so `LLM_API_KEY` is *
 ## License
 
 Choose a license (e.g. MIT) and add a `LICENSE` file.
+
+## Optional cloud agent
+A free Cloudflare Worker + D1 backend with optional Telegram control lives in `cloud-agent/`. It is off by default; see `docs/CLOUD_AGENT.md`.

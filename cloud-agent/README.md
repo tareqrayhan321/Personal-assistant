@@ -1,4 +1,4 @@
-# Cloud Agent (Phases 2-3: foundation + Telegram)
+# Cloud Agent (Worker + D1 + Telegram + Workers AI)
 
 Cloudflare Worker + D1 for cloud jobs. Event-driven only (requests, a webhook, a cron). There is no always-running process.
 Kept separate from `server/` (the AI proxy) on purpose: the proxy token ships in the APK, the owner token here never does.
@@ -20,7 +20,7 @@ Status flow: `pending -> running -> succeeded | failed | cancelled`; a failed at
 |---|---|---|
 | Workers | 100,000 requests/day, 5 cron triggers per account | requests fail |
 | D1 | 5M rows read/day, 100,000 rows written/day, 5 GB | queries fail (HTTP 503 `quota_exceeded` from this Worker) |
-| Workers AI (Phase 5) | 10,000 Neurons/day, shared by all models | calls fail |
+| Workers AI | 10,000 Neurons/day, shared by all models | calls fail; the job shows `quota_exceeded` and nothing is charged |
 
 Daily limits reset at 00:00 UTC. Charges only start if you upgrade to Workers Paid yourself. Never do that for this project. Each created job costs 2 row writes, so roughly 50,000 jobs/day fit.
 
@@ -82,5 +82,21 @@ Invoke-RestMethod -Method Post -Uri "https://api.telegram.org/bot<TOKEN>/setWebh
 
 To switch Telegram off: set `TELEGRAM_ENABLED = "false"` and deploy, or call `deleteWebhook`. Telegram's Bot API has no fee that I could find in the documentation I read; I did not verify its current terms page.
 
-## Not covered yet
-Job execution and AI (Phase 5; until then jobs stay `pending`), the Android client (Phase 4).
+## Cloud AI (optional, off by default)
+`AI_ENABLED = "true"` makes the Worker run pending `ai_prompt` jobs with the **Workers AI binding** (`[ai]` in `wrangler.toml`). It is the only AI provider: there is no other key and no fallback, so it cannot start charging anything.
+
+- When: once right after a job is created (background of that request) and by the 15-minute cron. Never a loop.
+- Bounds: one AI call per job, `AI_MAX_TOKENS` (512), 20 s timeout, at most `AI_MAX_JOBS_PER_RUN` (3) jobs per run, at most `AI_DAILY_CALL_CAP` (100) calls per UTC day, 3 attempts per job with a growing wait (2 min, 4 min) between them.
+- Errors are stored as short codes only: `quota_exceeded` (no retry, run stops), `ai_timeout`, `ai_empty`, `ai_error`. If the daily cap is reached, jobs simply stay `pending` until tomorrow.
+- The model is `AI_MODEL`. Cloud jobs send plain chat only (no tools), so tool calling is not needed here.
+
+### Is a model good enough for the app's Task Mode?
+Task Mode needs tool calling. I could not verify a specific model's tool calling from here (Cloudflare's docs describe the OpenAI-compatible endpoint, but I did not find an official per-model tool-calling list). Check on your own account:
+```
+$env:CF_ACCOUNT_ID="<account id>"; $env:CF_API_TOKEN="<token with Workers AI permission>"
+node scripts/check-workers-ai.mjs "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+```
+It tests plain chat, tool calling and streaming, and tells you whether the model can drive Task Mode. Use any model that prints `3/3`. To use it from the app, deploy the existing `server/` proxy with `UPSTREAM_BASE = https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/ai`, `UPSTREAM_API_KEY` = your API token (as a secret) and `ALLOWED_MODELS` = that model, then put the proxy address in the app's Settings as usual. The proxy keeps the token off the phone, and Task Mode's approval gates are unchanged.
+
+## Not covered
+Always-running agents, shell or file work in the cloud, long jobs that need more than ~20 s of AI time, images. These need paid or persistent resources; use the phone (ApprovalGate) or your Cloud Computer for them.

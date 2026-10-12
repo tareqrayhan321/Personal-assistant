@@ -1,6 +1,7 @@
 // Job storage and state transitions on D1. Every transition is a single guarded UPDATE, so two
 // concurrent callers can never both win (the loser sees changes = 0).
 
+export const RETRY_BACKOFF_MS = 120_000; // x attempts so far
 export const TYPES = ['ai_prompt', 'note'];
 export const STATUSES = ['pending', 'running', 'succeeded', 'failed', 'cancelled'];
 
@@ -101,10 +102,10 @@ export function claimNext(db, now, leaseMs) {
   return db
     .prepare(
       `UPDATE jobs SET status = 'running', attempts = attempts + 1, lease_until = ?, updated_at = ?
-       WHERE id = (SELECT id FROM jobs WHERE status = 'pending' ORDER BY created_at LIMIT 1) AND status = 'pending'
+       WHERE id = (SELECT id FROM jobs WHERE status = 'pending' AND run_after <= ? ORDER BY created_at LIMIT 1) AND status = 'pending'
        RETURNING *`,
     )
-    .bind(now + leaseMs, now)
+    .bind(now + leaseMs, now, now)
     .first();
 }
 
@@ -117,15 +118,16 @@ export async function completeJob(db, id, result, now) {
   return res.meta.changes === 1;
 }
 
-/** running -> pending (retry) while attempts remain, otherwise running -> failed. */
+/** running -> pending (retry, after a backoff) while attempts remain, otherwise running -> failed. */
 export async function failJob(db, id, errorCode, now) {
   const res = await db
     .prepare(
       `UPDATE jobs SET status = CASE WHEN attempts < max_attempts THEN 'pending' ELSE 'failed' END,
+         run_after = CASE WHEN attempts < max_attempts THEN ? + ? * attempts ELSE run_after END,
          error_code = ?, lease_until = NULL, updated_at = ?
        WHERE id = ? AND status = 'running'`,
     )
-    .bind(String(errorCode).slice(0, 64), now, id)
+    .bind(now, RETRY_BACKOFF_MS, String(errorCode).slice(0, 64), now, id)
     .run();
   return res.meta.changes === 1;
 }
@@ -195,4 +197,19 @@ export async function claimNotifications(db, limit) {
 
 export async function markNotified(db, id, now) {
   await db.prepare('UPDATE jobs SET notified_at = ? WHERE id = ? AND notified_at IS NULL').bind(now, id).run();
+}
+
+/** running -> failed right away, no retry. For errors a retry cannot fix (quota exhausted). */
+export async function failJobFinal(db, id, errorCode, now) {
+  const res = await db
+    .prepare("UPDATE jobs SET status = 'failed', error_code = ?, lease_until = NULL, updated_at = ? WHERE id = ? AND status = 'running'")
+    .bind(String(errorCode).slice(0, 64), now, id)
+    .run();
+  return res.meta.changes === 1;
+}
+
+export const recordAiCall = (db, now, jobId) => audit(db, now, 'worker', 'ai_call', jobId);
+
+export async function countAiCallsSince(db, since) {
+  return (await db.prepare("SELECT COUNT(*) AS n FROM audit WHERE action = 'ai_call' AND at >= ?").bind(since).first()).n;
 }

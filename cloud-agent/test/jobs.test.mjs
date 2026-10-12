@@ -40,14 +40,23 @@ test('fail: retries until max_attempts, then failed', async () => {
   const db = makeDb();
   const { job } = await make(db);
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const c = await jobs.claimNext(db, 2000 + attempt, 1000);
+    const c = await jobs.claimNext(db, attempt * 10_000_000, 1000); // far apart: the retry backoff has passed
     assert.equal(c.attempts, attempt);
     assert.equal(await jobs.failJob(db, job.id, 'ai_error', 3000), true);
     const row = await jobs.getJob(db, job.id);
     assert.equal(row.status, attempt < 3 ? 'pending' : 'failed');
   }
-  assert.equal(await jobs.claimNext(db, 9000, 1000), null);
+  assert.equal(await jobs.claimNext(db, 90_000_000, 1000), null);
   assert.equal((await jobs.getJob(db, job.id)).error_code, 'ai_error');
+});
+
+test('a failed attempt is not retried before its backoff has passed', async () => {
+  const db = makeDb();
+  const { job } = await make(db);
+  await jobs.claimNext(db, 2000, 1000);
+  await jobs.failJob(db, job.id, 'ai_error', 3000); // attempts = 1 -> wait 120s
+  assert.equal(await jobs.claimNext(db, 3000 + 119_000, 1000), null);
+  assert.equal((await jobs.claimNext(db, 3000 + 120_000, 1000)).id, job.id);
 });
 
 test('cancelled jobs are never claimed', async () => {
