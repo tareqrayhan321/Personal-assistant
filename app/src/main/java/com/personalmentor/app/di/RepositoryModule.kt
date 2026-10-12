@@ -1,7 +1,13 @@
 package com.personalmentor.app.di
 
 import com.personalmentor.app.data.reminder.AlarmReminderScheduler
+import com.personalmentor.app.data.cloud.OkHttpCloudAgentApi
 import com.personalmentor.app.data.computer.OkHttpComputerApi
+import com.personalmentor.app.data.repository.CloudJobRepositoryImpl
+import com.personalmentor.app.data.settings.CloudSettingsRepositoryImpl
+import com.personalmentor.app.domain.cloud.CloudAgentApi
+import com.personalmentor.app.domain.repository.CloudJobRepository
+import com.personalmentor.app.domain.repository.CloudSettingsRepository
 import com.personalmentor.app.data.repository.ChatRepositoryImpl
 import com.personalmentor.app.data.repository.CloudComputerRepositoryImpl
 import com.personalmentor.app.data.schedule.AlarmScheduleTrigger
@@ -64,4 +70,13 @@ abstract class RepositoryModule {
 
     @Binds @Singleton
     abstract fun bindComputerApi(impl: OkHttpComputerApi): ComputerApi
+
+    @Binds @Singleton
+    abstract fun bindCloudAgentApi(impl: OkHttpCloudAgentApi): CloudAgentApi
+
+    @Binds @Singleton
+    abstract fun bindCloudSettingsRepository(impl: CloudSettingsRepositoryImpl): CloudSettingsRepository
+
+    @Binds @Singleton
+    abstract fun bindCloudJobRepository(impl: CloudJobRepositoryImpl): CloudJobRepository
 }

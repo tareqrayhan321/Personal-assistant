@@ -16,6 +16,7 @@ import com.personalmentor.app.presentation.agent.ApprovalDialog
 import com.personalmentor.app.presentation.agent.ApprovalViewModel
 import com.personalmentor.app.presentation.macro.MacroEditorScreen
 import com.personalmentor.app.presentation.chat.ChatScreen
+import com.personalmentor.app.presentation.cloud.CloudAgentScreen
 import com.personalmentor.app.presentation.knowledge.KnowledgeScreen
 import com.personalmentor.app.presentation.scheduled.ScheduledTasksScreen
 import com.personalmentor.app.presentation.settings.SettingsScreen
@@ -26,6 +27,7 @@ object Routes {
     const val TASKS = "tasks"
     const val KNOWLEDGE = "knowledge"
     const val SETTINGS = "settings"
+    const val CLOUD = "settings/cloud"
     const val AGENT = "agent"
     const val MACRO = "agent/macro/{id}"
 
@@ -85,7 +87,13 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
             KnowledgeScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenCloud = { navController.navigate(Routes.CLOUD) },
+            )
+        }
+        composable(Routes.CLOUD) {
+            CloudAgentScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.AGENT) {
             AgentScreen(

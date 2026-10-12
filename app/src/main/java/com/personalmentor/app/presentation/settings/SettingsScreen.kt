@@ -50,6 +50,7 @@ import com.personalmentor.app.data.remote.ProviderKind
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenCloud: (() -> Unit)? = null,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -64,6 +65,7 @@ fun SettingsScreen(
         onSave = viewModel::onSave,
         onReset = viewModel::onReset,
         onRefreshModels = viewModel::refreshModels,
+        onOpenCloud = onOpenCloud,
     )
 }
 
@@ -129,6 +131,7 @@ internal fun SettingsContent(
     onSave: () -> Unit,
     onReset: () -> Unit,
     onRefreshModels: () -> Unit = {},
+    onOpenCloud: (() -> Unit)? = null,
 ) {
     val form = state.form
     val providerKind = state.provider
@@ -227,6 +230,10 @@ internal fun SettingsContent(
             ) {
                 TextButton(onClick = onReset) { Text("Reset to defaults") }
                 Button(onClick = onSave, enabled = state.canSave) { Text("Save") }
+            }
+
+            if (onOpenCloud != null) {
+                TextButton(onClick = onOpenCloud) { Text("Cloud agent (optional)") }
             }
 
             if (BuildConfig.PRIVACY_POLICY_URL.isNotBlank()) {
