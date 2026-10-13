@@ -139,8 +139,9 @@ Keys in `BuildConfig` can be extracted from a shipped APK, so `LLM_API_KEY` is *
 - [x] Settings screen: provider presets, base URL, API key, chat and embedding model (applied immediately, stored on-device)
 - [x] Unit tests (task tools, SSE parsing, ViewModel, RAG, reminders, proxy) and CI (GitHub Actions: tests, debug build, release shrink check)
 - [x] Compose UI tests for the chat, Knowledge, Settings and Tasks screens (`app/src/androidTest`, run on an emulator in CI) via stateless `*Content` composables
-- [x] Release prep: proxy server, no provider key in the APK, adaptive launcher icon, ProGuard rules, in-app reporting of AI responses, privacy-policy link, API 36 (see `docs/RELEASE.md`, `docs/PLAY_STORE.md`)
-- [ ] Play Console steps that only you can do (exact-alarm declaration, data-safety form, privacy policy page)
+- [x] Release prep: proxy server, no provider key in the APK, adaptive launcher icon, ProGuard rules, in-app reporting of AI responses, privacy-policy link, API 36 (see `docs/RELEASE.md`)
+- [ ] Distribution: signed release APK via GitHub Releases (Play Store release cancelled — no Play Console steps needed)
+- [ ] Short privacy note for direct distribution (user data reaches the AI provider through your proxy)
 - [x] Exact-alarm permission flow (Android 12+/14+) and snooze (notification buttons + `snooze_task` tool)
 - [x] Repeating reminders (daily / weekly)
 - [x] Task Mode scheduled tasks: Runs / Scheduled tabs, editor, alarm + WorkManager runs, run history, projects
