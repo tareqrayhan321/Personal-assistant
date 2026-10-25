@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   android:
@@ -21,20 +25,16 @@ jobs:
         run: gradle :app:testDebugUnitTest --no-daemon
       - name: Debug APK
         run: gradle :app:assembleDebug --no-daemon
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: PersonalMentor-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: Publish debug APK to Release (latest-debug)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest-debug >/dev/null 2>&1 || gh release create latest-debug --title "Latest debug build" --notes "Auto-built debug APK from the latest main commit. Download app-debug.apk from the Assets below."
+          gh release upload latest-debug app/build/outputs/apk/debug/app-debug.apk --clobber
       # Runs R8/ProGuard + resource shrinking; -PciBuild skips the proxy-secrets check (unsigned output).
       - name: Release build (shrink check)
         run: gradle :app:assembleRelease -PciBuild=true --no-daemon
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: test-reports
-          path: app/build/reports/tests/
 
   proxy:
     runs-on: ubuntu-latest
